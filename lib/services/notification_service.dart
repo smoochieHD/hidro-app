@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -106,6 +107,7 @@ class NotificationService {
     _initialized = true;
 
     tzdata.initializeTimeZones();
+    _setLocalTimeZoneFromDeviceOffset();
 
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -122,15 +124,54 @@ class NotificationService {
         AndroidFlutterLocalNotificationsPlugin>();
     await android?.requestNotificationsPermission();
     await android?.requestExactAlarmsPermission();
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      'fast_end_channel',
+      'Fim de jejum',
+      description: 'Avisa quando o jejum atual termina.',
+      importance: Importance.high,
+    ));
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      'fast_start_channel',
+      'Início de jejum',
+      description: 'Avisa quando um jejum agendado começa.',
+      importance: Importance.high,
+    ));
+  }
+
+  /// O package timezone assume UTC como fuso local por defeito, o que
+  /// fazia os agendamentos ficarem desviados pelo offset do dispositivo
+  /// (ex: notificações nunca dispararem, por ficarem "no passado" assim
+  /// que comparadas com a hora local real). Em vez de depender de um
+  /// plugin extra só para obter o nome IANA do fuso, procuramos na base
+  /// de dados já carregada uma localização cujo offset atual coincida
+  /// com o offset que o próprio Dart já conhece (DateTime.timeZoneOffset).
+  void _setLocalTimeZoneFromDeviceOffset() {
+    final deviceOffset = DateTime.now().timeZoneOffset;
+    for (final location in tz.timeZoneDatabase.locations.values) {
+      final offset =
+          Duration(milliseconds: location.currentTimeZone.offset);
+      if (offset == deviceOffset) {
+        tz.setLocalLocation(location);
+        return;
+      }
+    }
+    // Não encontrou nenhuma correspondência exata (muito improvável) —
+    // mantém UTC, melhor do que rebentar.
   }
 
   /// Agenda a notificação de fim de jejum para o instante exato [endTime],
   /// com as ações "Marcar próximo" e "Agora não".
   Future<void> scheduleFastEndNotification(DateTime endTime) async {
     await init();
-    if (endTime.isBefore(DateTime.now())) return;
+    if (endTime.isBefore(DateTime.now())) {
+      debugPrint('[Hidro] scheduleFastEndNotification: endTime ($endTime) '
+          'já passou (agora: ${DateTime.now()}), notificação NÃO agendada.');
+      return;
+    }
 
     final scheduledDate = tz.TZDateTime.from(endTime, tz.local);
+    debugPrint('[Hidro] A agendar fim de jejum para $scheduledDate '
+        '(fuso local: ${tz.local.name})');
 
     const androidDetails = AndroidNotificationDetails(
       'fast_end_channel',
@@ -160,6 +201,7 @@ class NotificationService {
       const NotificationDetails(android: androidDetails),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     );
+    debugPrint('[Hidro] Notificação de fim de jejum agendada com sucesso.');
   }
 
   /// Cancela a notificação de fim de jejum agendada (ex: quando o jejum é
