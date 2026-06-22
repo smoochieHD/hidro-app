@@ -104,6 +104,21 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
                   ),
           ),
           const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Hoje',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              TextButton.icon(
+                onPressed: () => state.addWater(250),
+                icon: const Icon(Icons.water_drop_outlined, size: 16),
+                label: Text(
+                  '${(state.currentWaterMl / 250).round()} copos · + copo',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           const WaterCard(),
         ],
       ),
