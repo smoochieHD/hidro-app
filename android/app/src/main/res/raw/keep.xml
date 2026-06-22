@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Garante que o ícone usado nas notificações (@mipmap/ic_launcher) não é
+  removido pelo shrinkResources do R8/ProGuard. Sem isto, a notificação de
+  fim/início de jejum pode falhar silenciosamente em builds de release.
+  https://developer.android.com/studio/build/shrink-code#keep-resources
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@mipmap/ic_launcher" />
