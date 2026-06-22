@@ -1,3 +1,14 @@
+/// Formata uma duração total em minutos como "Xh Ymin" (ou só "Xh" /
+/// "Ymin" quando uma das partes é zero). Usado para mostrar protocolos de
+/// jejum de forma legível em toda a app.
+String formatDurationMinutes(int totalMinutes) {
+  final h = totalMinutes ~/ 60;
+  final m = totalMinutes % 60;
+  if (h > 0 && m > 0) return '${h}h ${m}min';
+  if (h > 0) return '${h}h';
+  return '${m}min';
+}
+
 /// Representa uma sessão de jejum, ativa ou já terminada.
 class FastingSession {
   final DateTime startTime;
