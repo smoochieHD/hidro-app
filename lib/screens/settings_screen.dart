@@ -1,5 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/fasting_session.dart';
 import '../services/app_state.dart';
 import '../theme/app_theme.dart';
 import 'paywall_screen.dart';
@@ -82,7 +84,7 @@ class SettingsScreen extends StatelessWidget {
           _settingRow(
             context,
             label: 'Protocolo',
-            value: '${state.defaultProtocolHours}h jejum',
+            value: formatDurationMinutes(state.defaultProtocolMinutes),
             onTap: () => _showProtocolPicker(context, state),
           ),
           const SizedBox(height: 14),
@@ -152,7 +154,7 @@ class SettingsScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final options = [16, 18, 20];
+        final presets = [16 * 60, 18 * 60, 20 * 60];
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -164,21 +166,135 @@ class SettingsScreen extends StatelessWidget {
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 14),
-                ...options.map((h) => ListTile(
-                      title: Text('$h:${24 - h}'),
-                      trailing: state.defaultProtocolHours == h
+                ...presets.map((m) => ListTile(
+                      title: Text('${m ~/ 60}:${24 - m ~/ 60}'),
+                      trailing: state.defaultProtocolMinutes == m
                           ? const Icon(Icons.check, color: AppColors.info)
                           : null,
                       onTap: () {
-                        state.setDefaultProtocolHours(h);
+                        state.setDefaultProtocolMinutes(m);
                         Navigator.of(ctx).pop();
                       },
                     )),
+                ListTile(
+                  title: const Text('Personalizado'),
+                  trailing: const Icon(Icons.chevron_right,
+                      color: AppColors.textSecondary),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    _showCustomDurationPicker(context, state);
+                  },
+                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  void _showCustomDurationPicker(BuildContext context, AppState state) {
+    int selectedHours = state.defaultProtocolMinutes ~/ 60;
+    int selectedMinutes = state.defaultProtocolMinutes % 60;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: StatefulBuilder(
+              builder: (ctx, setLocalState) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Duração personalizada',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    const Text('Define quanto tempo dura o jejum',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary)),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      height: 160,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _wheelColumn(
+                              label: 'horas',
+                              itemCount: 24,
+                              initialValue: selectedHours,
+                              onChanged: (v) =>
+                                  setLocalState(() => selectedHours = v),
+                            ),
+                          ),
+                          Expanded(
+                            child: _wheelColumn(
+                              label: 'min',
+                              itemCount: 60,
+                              initialValue: selectedMinutes,
+                              onChanged: (v) =>
+                                  setLocalState(() => selectedMinutes = v),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (selectedHours == 0 && selectedMinutes == 0)
+                            ? null
+                            : () {
+                                state.setDefaultProtocolMinutes(
+                                  selectedHours * 60 + selectedMinutes,
+                                );
+                                Navigator.of(ctx).pop();
+                              },
+                        child: const Text('Confirmar'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _wheelColumn({
+    required String label,
+    required int itemCount,
+    required int initialValue,
+    required ValueChanged<int> onChanged,
+  }) {
+    return Column(
+      children: [
+        Text(label,
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        const SizedBox(height: 4),
+        Expanded(
+          child: CupertinoPicker(
+            itemExtent: 36,
+            scrollController:
+                FixedExtentScrollController(initialItem: initialValue),
+            onSelectedItemChanged: onChanged,
+            children: List.generate(
+              itemCount,
+              (i) => Center(child: Text('$i')),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
