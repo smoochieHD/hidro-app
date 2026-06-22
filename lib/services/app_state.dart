@@ -15,7 +15,7 @@ class AppState extends ChangeNotifier {
   StreamSubscription<String>? _notificationActionSub;
 
   FastingSession? activeSession;
-  int defaultProtocolHours;
+  int defaultProtocolMinutes;
   HomeThemeId selectedTheme;
   bool isPremium;
 
@@ -29,7 +29,7 @@ class AppState extends ChangeNotifier {
   AppState._({
     required this.storage,
     required this.activeSession,
-    required this.defaultProtocolHours,
+    required this.defaultProtocolMinutes,
     required this.selectedTheme,
     required this.isPremium,
   }) {
@@ -48,7 +48,7 @@ class AppState extends ChangeNotifier {
     final state = AppState._(
       storage: storage,
       activeSession: storage.loadActiveSession(),
-      defaultProtocolHours: storage.loadDefaultProtocolHours(),
+      defaultProtocolMinutes: storage.loadDefaultProtocolMinutes(),
       selectedTheme: HomeThemeIdX.fromId(storage.loadSelectedTheme()),
       isPremium: storage.loadPremiumStatus(),
     );
@@ -68,15 +68,15 @@ class AppState extends ChangeNotifier {
 
   // ---- Jejum ----
 
-  Future<void> startFasting({int? hours}) async {
-    final goalHours = hours ?? defaultProtocolHours;
+  Future<void> startFasting({int? minutes}) async {
+    final goalMinutes = minutes ?? defaultProtocolMinutes;
     // Qualquer água registada enquanto não havia jejum ativo (durante a
     // janela de alimentação) passa a contar para este novo jejum, em vez
     // de se perder.
     final carriedWater = storage.loadPendingWater();
     activeSession = FastingSession(
       startTime: DateTime.now(),
-      goalDuration: Duration(hours: goalHours),
+      goalDuration: Duration(minutes: goalMinutes),
       waterMl: carriedWater,
     );
     await storage.clearPendingWater();
@@ -133,11 +133,11 @@ class AppState extends ChangeNotifier {
     if (DateTime.now().isBefore(scheduledTime)) return;
     if (activeSession != null) return; // já há um jejum ativo, não duplicar
 
-    final hours = storage.loadScheduledNextFastHours();
+    final minutes = storage.loadScheduledNextFastMinutes();
     final carriedWater = storage.loadPendingWater();
     activeSession = FastingSession(
       startTime: scheduledTime,
-      goalDuration: Duration(hours: hours),
+      goalDuration: Duration(minutes: minutes),
       waterMl: carriedWater,
     );
     await storage.clearPendingWater();
@@ -188,9 +188,9 @@ class AppState extends ChangeNotifier {
 
   // ---- Definições ----
 
-  Future<void> setDefaultProtocolHours(int hours) async {
-    defaultProtocolHours = hours;
-    await storage.saveDefaultProtocolHours(hours);
+  Future<void> setDefaultProtocolMinutes(int minutes) async {
+    defaultProtocolMinutes = minutes;
+    await storage.saveDefaultProtocolMinutes(minutes);
     notifyListeners();
   }
 
