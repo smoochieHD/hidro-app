@@ -51,12 +51,23 @@ android {
         versionName flutterVersionName
     }
 
+    signingConfigs {
+        // Chave fixa, guardada no repositório (debug-fixed.keystore), para
+        // que cada build na cloud assine sempre com a mesma assinatura.
+        // Sem isto, cada execução do GitHub Actions gera uma chave de
+        // debug nova, e o Android trata cada APK como uma app diferente,
+        // bloqueando a atualização por cima da versão já instalada.
+        fixedDebug {
+            keyAlias 'hidrodebug'
+            keyPassword 'android123'
+            storeFile file('debug-fixed.keystore')
+            storePassword 'android123'
+        }
+    }
+
     buildTypes {
         release {
-            // Build assinado com uma chave de debug por agora, suficiente
-            // para testares o APK no teu telemóvel. Antes de publicar na
-            // Play Store, isto será substituído por uma keystore própria.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.fixedDebug
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
