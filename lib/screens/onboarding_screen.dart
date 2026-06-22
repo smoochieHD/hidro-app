@@ -163,7 +163,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
     final state = context.read<AppState>();
-    await state.setDefaultProtocolHours(_selectedHours);
+    await state.setDefaultProtocolMinutes(_selectedHours * 60);
     await state.setWaterGoal(_waterGoalMl);
     await state.storage.setOnboardingDone();
     if (mounted) {
