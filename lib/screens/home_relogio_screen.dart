@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/water_card.dart';
+import '../widgets/today_water_row.dart';
 
 /// Tema "Relógio": anel de progresso circular clássico. Tema premium.
 class HomeRelogioScreen extends StatefulWidget {
@@ -104,20 +105,10 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
                   ),
           ),
           const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Hoje',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              TextButton.icon(
-                onPressed: () => state.addWater(250),
-                icon: const Icon(Icons.water_drop_outlined, size: 16),
-                label: Text(
-                  '${(state.currentWaterMl / 250).round()} copos · + copo',
-                ),
-              ),
-            ],
-          ),
+          const Text('Hoje',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          const TodayWaterRow(),
           const SizedBox(height: 8),
           const WaterCard(),
         ],
