@@ -117,6 +117,11 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse:
           notificationBackgroundHandler,
     );
+
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await android?.requestNotificationsPermission();
+    await android?.requestExactAlarmsPermission();
   }
 
   /// Agenda a notificação de fim de jejum para o instante exato [endTime],
