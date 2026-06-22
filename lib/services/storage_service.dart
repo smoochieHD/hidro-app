@@ -44,14 +44,14 @@ class StorageService {
 
   /// Guarda a hora em que o próximo jejum deve começar automaticamente,
   /// junto com o protocolo (horas) a usar nesse jejum. `null` para limpar.
-  Future<void> saveScheduledNextFast(DateTime? time, int? hours) async {
+  Future<void> saveScheduledNextFast(DateTime? time, int? minutes) async {
     if (time == null) {
       await _prefs.remove(_keyScheduledNextFastTime);
       await _prefs.remove(_keyScheduledNextFastHours);
       return;
     }
     await _prefs.setString(_keyScheduledNextFastTime, time.toIso8601String());
-    await _prefs.setInt(_keyScheduledNextFastHours, hours ?? 16);
+    await _prefs.setInt(_keyScheduledNextFastHours, minutes ?? 16 * 60);
   }
 
   DateTime? loadScheduledNextFastTime() {
@@ -60,8 +60,8 @@ class StorageService {
     return DateTime.tryParse(raw);
   }
 
-  int loadScheduledNextFastHours() =>
-      _prefs.getInt(_keyScheduledNextFastHours) ?? 16;
+  int loadScheduledNextFastMinutes() =>
+      _prefs.getInt(_keyScheduledNextFastHours) ?? 16 * 60;
 
   // ---- Sessão de jejum ativa ----
 
@@ -114,12 +114,12 @@ class StorageService {
 
   int loadWaterGoal() => _prefs.getInt(_keyWaterGoal) ?? 2000;
 
-  Future<void> saveDefaultProtocolHours(int hours) async {
-    await _prefs.setInt(_keyDefaultProtocolHours, hours);
+  Future<void> saveDefaultProtocolMinutes(int minutes) async {
+    await _prefs.setInt(_keyDefaultProtocolHours, minutes);
   }
 
-  int loadDefaultProtocolHours() =>
-      _prefs.getInt(_keyDefaultProtocolHours) ?? 16;
+  int loadDefaultProtocolMinutes() =>
+      _prefs.getInt(_keyDefaultProtocolHours) ?? 16 * 60;
 
   Future<void> saveSelectedTheme(String themeId) async {
     await _prefs.setString(_keySelectedTheme, themeId);
