@@ -19,3 +19,8 @@
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+
+# --- Google Play Core (deferred components): não usamos esta
+# funcionalidade, mas o Flutter engine referencia-a sempre. Sem isto, o
+# R8 falha por "missing classes" mesmo sem a usarmos.
+-dontwarn com.google.android.play.core.**
