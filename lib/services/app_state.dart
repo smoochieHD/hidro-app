@@ -52,7 +52,10 @@ class AppState extends ChangeNotifier {
       selectedTheme: HomeThemeIdX.fromId(storage.loadSelectedTheme()),
       isPremium: storage.loadPremiumStatus(),
     );
-    await state._notifications.init();
+    // Não bloqueia o arranque da app: a inicialização do plugin de
+    // notificações (e o pedido de permissões ao sistema) corre em
+    // paralelo, para o primeiro ecrã aparecer imediatamente.
+    unawaited(state._notifications.init());
     await state.checkScheduledNextFast();
     return state;
   }
