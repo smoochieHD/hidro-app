@@ -68,14 +68,14 @@ Future<void> notificationBackgroundHandler(NotificationResponse response) async 
     // alimentação (24h - duração do protocolo), usando o mesmo protocolo
     // que o jejum que acabou de terminar (ou o valor por defeito das
     // definições, se por algum motivo não houver sessão anterior).
-    final protocolHours = active?.goalDuration.inHours ??
-        storage.loadDefaultProtocolHours();
+    final protocolMinutes = active?.goalDuration.inMinutes ??
+        storage.loadDefaultProtocolMinutes();
     final eatingWindow = Duration(
-      hours: (24 - protocolHours).clamp(1, 23),
+      minutes: (24 * 60 - protocolMinutes).clamp(1, 24 * 60 - 1),
     );
     final nextStart = DateTime.now().add(eatingWindow);
 
-    await storage.saveScheduledNextFast(nextStart, protocolHours);
+    await storage.saveScheduledNextFast(nextStart, protocolMinutes);
     await notifications.scheduleFastStartNotification(nextStart);
   } else if (actionId == actionDismiss) {
     // "Agora não": apenas termina o jejum atual, sem agendar o próximo.
