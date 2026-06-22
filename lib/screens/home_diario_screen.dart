@@ -183,7 +183,7 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Protocolo definido: ${state.defaultProtocolHours}h',
+            'Protocolo definido: ${formatDurationMinutes(state.defaultProtocolMinutes)}',
             style:
                 const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
