@@ -123,7 +123,6 @@ class NotificationService {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     await android?.requestNotificationsPermission();
-    await android?.requestExactAlarmsPermission();
     await android?.createNotificationChannel(const AndroidNotificationChannel(
       'fast_end_channel',
       'Fim de jejum',
@@ -163,6 +162,20 @@ class NotificationService {
   /// com as ações "Marcar próximo" e "Agora não".
   Future<void> scheduleFastEndNotification(DateTime endTime) async {
     await init();
+    await _plugin.show(
+      9999,
+      'Jejum iniciado',
+      'O seu jejum está a contar. Boa sorte!',
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'fast_end_channel',
+          'Fim de jejum',
+          channelDescription: 'Avisa quando o jejum atual termina.',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
+    );
     if (endTime.isBefore(DateTime.now())) {
       debugPrint('[Hidro] scheduleFastEndNotification: endTime ($endTime) '
           'já passou (agora: ${DateTime.now()}), notificação NÃO agendada.');
@@ -199,7 +212,7 @@ class NotificationService {
       'Quer agendar o próximo jejum?',
       scheduledDate,
       const NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
     debugPrint('[Hidro] Notificação de fim de jejum agendada com sucesso.');
   }
@@ -234,7 +247,7 @@ class NotificationService {
       'A janela de alimentação terminou. Bom jejum!',
       scheduledDate,
       const NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 
