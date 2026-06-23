@@ -41,10 +41,6 @@ Future<void> notificationBackgroundHandler(NotificationResponse response) async 
   final actionId = response.actionId;
   if (actionId == null) return;
 
-  // Avisa a UI em primeiro plano, caso esteja a escutar (não bloqueia se
-  // não estiver — broadcast streams sem listeners não acumulam eventos).
-  notificationActionStream.add(actionId);
-
   // Garante que este isolate tem acesso aos plugins (shared_preferences,
   // notificações), já que pode ser um isolate novo, sem o registo normal
   // que main() faz no isolate principal.
@@ -87,6 +83,10 @@ Future<void> notificationBackgroundHandler(NotificationResponse response) async 
     }
     await notifications.cancelFastEndNotification();
   }
+
+  // Só agora, com toda a escrita já concluída, avisa a UI em primeiro
+  // plano (caso esteja a escutar) para reler o estado atualizado.
+  notificationActionStream.add(actionId);
 }
 
 /// Serviço responsável por agendar, cancelar, e reagir às notificações de
