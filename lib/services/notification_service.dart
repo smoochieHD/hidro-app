@@ -66,15 +66,14 @@ Future<void> notificationBackgroundHandler(NotificationResponse response) async 
     await notifications.cancelFastEndNotification();
 
     // Agenda o início do próximo jejum para o fim da janela de
-    // alimentação (24h - duração do protocolo), usando o mesmo protocolo
-    // que o jejum que acabou de terminar (ou o valor por defeito das
-    // definições, se por algum motivo não houver sessão anterior).
+    // alimentação, definida de forma independente pelo utilizador (não é
+    // sempre 24h - jejum, para permitir ciclos curtos repetidos).
     final protocolMinutes = active?.goalDuration.inMinutes ??
+        storage.loadLastFinishedProtocolMinutes() ??
         storage.loadDefaultProtocolMinutes();
-    final eatingWindow = Duration(
-      minutes: (24 * 60 - protocolMinutes).clamp(1, 24 * 60 - 1),
-    );
-    final nextStart = DateTime.now().add(eatingWindow);
+    final eatingWindowMinutes = storage.loadEatingWindowMinutes();
+    final nextStart =
+        DateTime.now().add(Duration(minutes: eatingWindowMinutes));
 
     await storage.saveScheduledNextFast(nextStart, protocolMinutes);
     await notifications.scheduleFastStartNotification(nextStart);
