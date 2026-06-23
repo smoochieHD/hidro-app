@@ -49,6 +49,18 @@ class FastingSession {
   /// Verdadeiro se a meta de duração já foi atingida ou superada.
   bool get goalReached => elapsed >= goalDuration;
 
+  /// Tempo restante até à meta, arredondado ao minuto mais próximo para
+  /// exibição — mas nunca mostra "00:00" enquanto o jejum ainda está
+  /// ativo: o mínimo exibido é sempre 1 minuto, até [goalReached] passar
+  /// a verdadeiro e a notificação de fim disparar.
+  Duration get remainingRounded {
+    if (goalReached) return Duration.zero;
+    final remaining = goalDuration - elapsed;
+    final roundedMinutes = (remaining.inSeconds / 60).round();
+    final minutes = roundedMinutes < 1 ? 1 : roundedMinutes;
+    return Duration(minutes: minutes);
+  }
+
   /// Hora prevista de fim, com base na hora de início e no objetivo.
   DateTime get plannedEndTime => startTime.add(goalDuration);
 
