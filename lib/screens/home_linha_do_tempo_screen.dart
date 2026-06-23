@@ -118,12 +118,74 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
                   ),
           ),
           const SizedBox(height: 20),
+          if (_lastSession(state) != null) ..._lastSessionRows(_lastSession(state)!),
+          const SizedBox(height: 8),
           const Text('Hoje',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
           const TodayWaterRow(),
           const SizedBox(height: 8),
           const WaterCard(),
+        ],
+      ),
+    );
+  }
+
+  FastingSession? _lastSession(AppState state) {
+    if (state.activeSession != null) return null;
+    final history = state.history;
+    if (history.isEmpty) return null;
+    return history.reduce(
+      (a, b) => a.startTime.isAfter(b.startTime) ? a : b,
+    );
+  }
+
+  List<Widget> _lastSessionRows(FastingSession session) {
+    return [
+      _infoRow(Icons.check_circle, 'Jejum iniciado',
+          DateFormat("HH:mm 'de' dd/MM").format(session.startTime)),
+      if (session.endTime != null) ...[
+        const SizedBox(height: 8),
+        _infoRow(Icons.flag_outlined, 'Fim de jejum',
+            DateFormat("HH:mm 'de' dd/MM").format(session.endTime!)),
+      ],
+    ];
+  }
+
+  Widget _infoRow(IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: const BoxDecoration(
+              color: AppColors.infoBackground,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 14, color: AppColors.info),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary)),
+                Text(subtitle,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -137,13 +199,7 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
   }
 
   String _formatRemaining(FastingSession session) {
-    final remaining = session.goalDuration - session.elapsed;
-    final isOver = remaining.isNegative;
-    final rounded = Duration(
-      seconds: ((isOver ? -remaining : remaining).inSeconds + 30) ~/ 60 * 60,
-    );
-    final h = rounded.inHours;
-    final m = rounded.inMinutes % 60;
-    return isOver ? 'há mais ${h}h ${m}m' : '${h}h ${m}m';
+    final r = session.remainingRounded;
+    return '${r.inHours}h ${r.inMinutes % 60}m';
   }
 }
