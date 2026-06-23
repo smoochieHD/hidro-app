@@ -1,29 +1,27 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/fasting_session.dart';
 import '../services/app_state.dart';
 import '../theme/app_theme.dart';
 import '../widgets/water_card.dart';
+import '../widgets/today_water_row.dart';
 
-/// Tema "Diário": feed cronológico do dia, em vez de um cronómetro.
-/// Tema gratuito por defeito da v1.
-class HomeDiarioScreen extends StatefulWidget {
-  const HomeDiarioScreen({super.key});
+/// Tema "Relógio": anel de progresso circular clássico. Tema premium.
+class HomeRelogioScreen extends StatefulWidget {
+  const HomeRelogioScreen({super.key});
 
   @override
-  State<HomeDiarioScreen> createState() => _HomeDiarioScreenState();
+  State<HomeRelogioScreen> createState() => _HomeRelogioScreenState();
 }
 
-class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
+class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
   Timer? _ticker;
 
   @override
   void initState() {
     super.initState();
-    // Atualiza o ecrã a cada minuto para que o tempo decorrido/restante
-    // do jejum se mantenha correto sem precisar de reiniciar a app.
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
       context.read<AppState>().checkFastCompletion();
       if (mounted) setState(() {});
@@ -63,48 +61,62 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          if (session != null)
-            _activeFastingCard(context, session)
-          else
-            _startFastingCard(state),
-          const SizedBox(height: 20),
-          const Text(
-            'Hoje',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
-          if (session != null)
-            _timelineItem(
-              icon: Icons.check_circle,
-              title: 'Jejum iniciado',
-              subtitle:
-                  DateFormat("HH:mm 'de' dd/MM").format(session.startTime),
-            ),
-          const SizedBox(height: 8),
-          _timelineItem(
-            icon: Icons.water_drop_outlined,
-            title: '${(state.currentWaterMl / 250).round()} copos de água',
-            subtitle:
-                '${state.currentWaterMl}ml de ${state.waterGoalMl}ml',
-            trailing: TextButton(
-              onPressed: () => state.addWater(250),
-              child: const Text('+ copo'),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (session != null)
-            _timelineItem(
-              icon: Icons.schedule,
-              title: 'Janela de alimentação',
-              subtitle:
-                  'Começa às ${DateFormat.Hm().format(session.plannedEndTime)}',
-              dashed: true,
-              muted: true,
-            ),
-          const SizedBox(height: 20),
-          const WaterCard(),
           const SizedBox(height: 12),
+          Center(
+            child: SizedBox(
+              width: 220,
+              height: 220,
+              child: CustomPaint(
+                painter: _RingPainter(
+                  progress: session?.progress ?? 0.0,
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Jejum',
+                          style: TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                      const SizedBox(height: 6),
+                      Text(
+                        session != null
+                            ? _formatRemaining(session)
+                            : '--:--',
+                        style: const TextStyle(
+                            fontSize: 30, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        session != null ? 'restante' : 'sem jejum ativo',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: session != null
+                ? ElevatedButton(
+                    onPressed: () => state.endFasting(),
+                    child: const Text('Terminar jejum'),
+                  )
+                : ElevatedButton(
+                    onPressed: () => state.startFasting(),
+                    child: const Text('Iniciar jejum'),
+                  ),
+          ),
+          const SizedBox(height: 20),
+          const Text('Hoje',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 10),
+          const TodayWaterRow(),
+          const SizedBox(height: 8),
+          const WaterCard(),
         ],
       ),
     );
@@ -117,174 +129,51 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
     return 'Boa noite';
   }
 
-  Widget _activeFastingCard(BuildContext context, FastingSession session) {
+  String _formatRemaining(FastingSession session) {
     final remaining = session.goalDuration - session.elapsed;
     final isOver = remaining.isNegative;
     final rounded = Duration(
       seconds: ((isOver ? -remaining : remaining).inSeconds + 30) ~/ 60 * 60,
     );
-    final hours = rounded.inHours;
-    final minutes = rounded.inMinutes % 60;
+    final h = rounded.inHours.toString().padLeft(2, '0');
+    final m = (rounded.inMinutes % 60).toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+}
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.tealBackground,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isOver ? 'Meta atingida' : 'A meio do jejum',
-            style: const TextStyle(fontSize: 12, color: AppColors.teal),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            isOver
-                ? 'Há mais $hours h $minutes min'
-                : 'Faltam $hours h $minutes min',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.teal,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Janela termina às ${DateFormat.Hm().format(session.plannedEndTime)}',
-            style: const TextStyle(fontSize: 12, color: AppColors.teal),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => _confirmEndFasting(context),
-              child: const Text('Terminar jejum agora'),
-            ),
-          ),
-        ],
-      ),
+class _RingPainter extends CustomPainter {
+  final double progress;
+  _RingPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 8;
+
+    final bgPaint = Paint()
+      ..color = AppColors.borderTertiary
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, bgPaint);
+
+    final fgPaint = Paint()
+      ..color = AppColors.info
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 10
+      ..strokeCap = StrokeCap.round;
+
+    final sweep = 2 * math.pi * progress.clamp(0.0, 1.0);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2,
+      sweep,
+      false,
+      fgPaint,
     );
   }
 
-  Widget _startFastingCard(AppState state) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.backgroundSecondary,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Sem jejum ativo',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Protocolo definido: ${formatDurationMinutes(state.defaultProtocolMinutes)}',
-            style:
-                const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => state.startFasting(),
-              child: const Text('Iniciar jejum'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmEndFasting(BuildContext context) {
-    final state = context.read<AppState>();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Terminar jejum?'),
-        content: const Text('Isto regista o fim da sessão atual.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () {
-              state.endFasting();
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Terminar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _timelineItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    Widget? trailing,
-    bool dashed = false,
-    bool muted = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: muted ? Colors.transparent : AppColors.backgroundSecondary,
-        borderRadius: BorderRadius.circular(12),
-        border: dashed ? Border.all(color: AppColors.borderTertiary) : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: muted
-                  ? AppColors.backgroundSecondary
-                  : AppColors.infoBackground,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 14,
-              color: muted ? AppColors.textSecondary : AppColors.info,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: muted
-                        ? AppColors.textSecondary
-                        : AppColors.textPrimary,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                      fontSize: 11, color: AppColors.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          if (trailing != null) trailing,
-        ],
-      ),
-    );
-  }
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }
