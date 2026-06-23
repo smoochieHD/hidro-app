@@ -77,20 +77,16 @@ class AppState extends ChangeNotifier {
   /// streams como [notificationActionStream] não atravessam isolates,
   /// por isso esta releitura periódica é a forma fiável de a UI detetar
   /// essas mudanças, em vez de depender só do stream).
-  void refreshFromStorage() {
+  ///
+  /// Promove também um agendamento pendente (janela de alimentação) a
+  /// jejum ativo se a hora já tiver passado — sem isto, o jejum só
+  /// "começava" de facto ao reiniciar a app, mesmo que a notificação de
+  /// início já tivesse disparado.
+  Future<void> refreshFromStorage() async {
+    await checkScheduledNextFast();
     final freshActiveSession = storage.loadActiveSession();
-    final changed = freshActiveSession?.startTime != activeSession?.startTime ||
-        (freshActiveSession == null) != (activeSession == null);
-    if (changed) {
-      activeSession = freshActiveSession;
-      notifyListeners();
-    } else {
-      // Mesmo sem mudança na sessão ativa, o agendamento do próximo
-      // jejum (scheduledNextFastTime) pode ter mudado — como é lido por
-      // getter direto do storage nos ecrãs, basta notificar para os
-      // widgets que o leem fazerem rebuild.
-      notifyListeners();
-    }
+    activeSession = freshActiveSession;
+    notifyListeners();
   }
 
   /// Chamado periodicamente pela UI (ver _ticker nos ecrãs do tema
