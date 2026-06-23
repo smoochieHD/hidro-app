@@ -71,6 +71,28 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Relê do armazenamento partilhado os campos que podem ter sido
+  /// alterados por outro isolate (o handler de notificações em
+  /// background corre, possivelmente, num isolate totalmente separado —
+  /// streams como [notificationActionStream] não atravessam isolates,
+  /// por isso esta releitura periódica é a forma fiável de a UI detetar
+  /// essas mudanças, em vez de depender só do stream).
+  void refreshFromStorage() {
+    final freshActiveSession = storage.loadActiveSession();
+    final changed = freshActiveSession?.startTime != activeSession?.startTime ||
+        (freshActiveSession == null) != (activeSession == null);
+    if (changed) {
+      activeSession = freshActiveSession;
+      notifyListeners();
+    } else {
+      // Mesmo sem mudança na sessão ativa, o agendamento do próximo
+      // jejum (scheduledNextFastTime) pode ter mudado — como é lido por
+      // getter direto do storage nos ecrãs, basta notificar para os
+      // widgets que o leem fazerem rebuild.
+      notifyListeners();
+    }
+  }
+
   /// Chamado periodicamente pela UI (ver _ticker nos ecrãs do tema
   /// principal) e ao voltar ao primeiro plano. Deteta se o jejum ativo já
   /// passou da meta e, nesse caso, termina-o automaticamente e mostra a
