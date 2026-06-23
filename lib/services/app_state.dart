@@ -56,6 +56,11 @@ class AppState extends ChangeNotifier {
     // notificações (e o pedido de permissões ao sistema) corre em
     // paralelo, para o primeiro ecrã aparecer imediatamente.
     unawaited(state._notifications.init());
+    // Rede de segurança: se a app foi aberta pelo toque numa ação da
+    // notificação (em vez de processada em background pelo Android),
+    // processa essa ação agora e relê o estado atualizado.
+    await state._notifications.consumePendingLaunchAction();
+    state.activeSession = storage.loadActiveSession();
     await state.checkScheduledNextFast();
     return state;
   }
