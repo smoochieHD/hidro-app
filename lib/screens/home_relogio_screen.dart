@@ -23,8 +23,10 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
   @override
   void initState() {
     super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
-      context.read<AppState>().checkFastCompletion();
+    _ticker = Timer.periodic(const Duration(seconds: 5), (_) {
+      final appState = context.read<AppState>();
+      appState.checkFastCompletion();
+      appState.refreshFromStorage();
       if (mounted) setState(() {});
     });
   }
