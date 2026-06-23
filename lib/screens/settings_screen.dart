@@ -87,6 +87,12 @@ class SettingsScreen extends StatelessWidget {
             value: formatDurationMinutes(state.defaultProtocolMinutes),
             onTap: () => _showProtocolPicker(context, state),
           ),
+          _settingRow(
+            context,
+            label: 'Tempo de comer',
+            value: formatDurationMinutes(state.eatingWindowMinutes),
+            onTap: () => _showEatingWindowPicker(context, state),
+          ),
           const SizedBox(height: 14),
           _sectionLabel('Água'),
           _settingRow(
@@ -147,8 +153,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showProtocolPicker(BuildContext context, AppState state) {
-    showModalBottomSheet(
+  void _showProtocolPicker(BuildContext context, AppState state) {    showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -182,7 +187,14 @@ class SettingsScreen extends StatelessWidget {
                       color: AppColors.textSecondary),
                   onTap: () {
                     Navigator.of(ctx).pop();
-                    _showCustomDurationPicker(context, state);
+                    _showCustomDurationPicker(
+                      context,
+                      state,
+                      title: 'Duração do jejum',
+                      subtitle: 'Define quanto tempo dura o jejum',
+                      initialMinutes: state.defaultProtocolMinutes,
+                      onConfirm: state.setDefaultProtocolMinutes,
+                    );
                   },
                 ),
               ],
@@ -193,9 +205,28 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showCustomDurationPicker(BuildContext context, AppState state) {
-    int selectedHours = state.defaultProtocolMinutes ~/ 60;
-    int selectedMinutes = state.defaultProtocolMinutes % 60;
+  void _showEatingWindowPicker(BuildContext context, AppState state) {
+    _showCustomDurationPicker(
+      context,
+      state,
+      title: 'Tempo de comer',
+      subtitle:
+          'Quanto tempo depois do fim do jejum até começar o próximo',
+      initialMinutes: state.eatingWindowMinutes,
+      onConfirm: state.setEatingWindowMinutes,
+    );
+  }
+
+  void _showCustomDurationPicker(
+    BuildContext context,
+    AppState state, {
+    required String title,
+    required String subtitle,
+    required int initialMinutes,
+    required ValueChanged<int> onConfirm,
+  }) {
+    int selectedHours = initialMinutes ~/ 60;
+    int selectedMinutes = initialMinutes % 60;
 
     showModalBottomSheet(
       context: context,
@@ -212,12 +243,12 @@ class SettingsScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Duração personalizada',
-                        style: TextStyle(
+                    Text(title,
+                        style: const TextStyle(
                             fontSize: 16, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 6),
-                    const Text('Define quanto tempo dura o jejum',
-                        style: TextStyle(
+                    Text(subtitle,
+                        style: const TextStyle(
                             fontSize: 12, color: AppColors.textSecondary)),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -252,9 +283,7 @@ class SettingsScreen extends StatelessWidget {
                         onPressed: (selectedHours == 0 && selectedMinutes == 0)
                             ? null
                             : () {
-                                state.setDefaultProtocolMinutes(
-                                  selectedHours * 60 + selectedMinutes,
-                                );
+                                onConfirm(selectedHours * 60 + selectedMinutes);
                                 Navigator.of(ctx).pop();
                               },
                         child: const Text('Confirmar'),
