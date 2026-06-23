@@ -25,6 +25,7 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
     // Atualiza o ecrã a cada minuto para que o tempo decorrido/restante
     // do jejum se mantenha correto sem precisar de reiniciar a app.
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      context.read<AppState>().checkFastCompletion();
       if (mounted) setState(() {});
     });
   }
@@ -119,9 +120,11 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
   Widget _activeFastingCard(BuildContext context, FastingSession session) {
     final remaining = session.goalDuration - session.elapsed;
     final isOver = remaining.isNegative;
-    final displayDuration = isOver ? -remaining : remaining;
-    final hours = displayDuration.inHours;
-    final minutes = displayDuration.inMinutes % 60;
+    final rounded = Duration(
+      seconds: ((isOver ? -remaining : remaining).inSeconds + 30) ~/ 60 * 60,
+    );
+    final hours = rounded.inHours;
+    final minutes = rounded.inMinutes % 60;
 
     return Container(
       width: double.infinity,
