@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/fasting_session.dart';
 import '../services/app_state.dart';
@@ -47,7 +48,13 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.auto_awesome, size: 16, color: AppColors.info),
+              Text(
+                _greeting(),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               IconButton(
                 onPressed: () => context.read<AppState>().goToSettings(),
                 icon: const Icon(Icons.settings_outlined,
@@ -74,16 +81,14 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
                       const SizedBox(height: 6),
                       Text(
                         session != null
-                            ? _formatElapsed(session.elapsed)
+                            ? _formatRemaining(session)
                             : '--:--',
                         style: const TextStyle(
                             fontSize: 30, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        session != null
-                            ? 'de ${formatDurationMinutes(session.goalDuration.inMinutes)}'
-                            : 'sem jejum ativo',
+                        session != null ? 'restante' : 'sem jejum ativo',
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.textSecondary),
                       ),
@@ -107,6 +112,8 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
                   ),
           ),
           const SizedBox(height: 20),
+          if (_lastSession(state) != null) ..._lastSessionRows(_lastSession(state)!),
+          const SizedBox(height: 8),
           const Text('Hoje',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
@@ -118,9 +125,77 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
     );
   }
 
-  String _formatElapsed(Duration d) {
-    final h = d.inHours.toString().padLeft(2, '0');
-    final m = (d.inMinutes % 60).toString().padLeft(2, '0');
+  FastingSession? _lastSession(AppState state) {
+    if (state.activeSession != null) return null;
+    final history = state.history;
+    if (history.isEmpty) return null;
+    return history.reduce(
+      (a, b) => a.startTime.isAfter(b.startTime) ? a : b,
+    );
+  }
+
+  List<Widget> _lastSessionRows(FastingSession session) {
+    return [
+      _infoRow(Icons.check_circle, 'Jejum iniciado',
+          DateFormat("HH:mm 'de' dd/MM").format(session.startTime)),
+      if (session.endTime != null) ...[
+        const SizedBox(height: 8),
+        _infoRow(Icons.flag_outlined, 'Fim de jejum',
+            DateFormat("HH:mm 'de' dd/MM").format(session.endTime!)),
+      ],
+    ];
+  }
+
+  Widget _infoRow(IconData icon, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: const BoxDecoration(
+              color: AppColors.infoBackground,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 14, color: AppColors.info),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary)),
+                Text(subtitle,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bom dia';
+    if (hour < 19) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  String _formatRemaining(FastingSession session) {
+    final r = session.remainingRounded;
+    final h = r.inHours.toString().padLeft(2, '0');
+    final m = (r.inMinutes % 60).toString().padLeft(2, '0');
     return '$h:$m';
   }
 }
