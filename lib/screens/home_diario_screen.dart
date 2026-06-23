@@ -40,6 +40,7 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final session = state.activeSession;
+    final lastSession = session ?? _lastFromHistory(state);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -74,13 +75,22 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
-          if (session != null)
+          if (lastSession != null)
             _timelineItem(
               icon: Icons.check_circle,
               title: 'Jejum iniciado',
-              subtitle:
-                  DateFormat("HH:mm 'de' dd/MM").format(session.startTime),
+              subtitle: DateFormat("HH:mm 'de' dd/MM")
+                  .format(lastSession.startTime),
             ),
+          if (lastSession != null && lastSession.endTime != null) ...[
+            const SizedBox(height: 8),
+            _timelineItem(
+              icon: Icons.flag_outlined,
+              title: 'Fim de jejum',
+              subtitle: DateFormat("HH:mm 'de' dd/MM")
+                  .format(lastSession.endTime!),
+            ),
+          ],
           const SizedBox(height: 8),
           _timelineItem(
             icon: Icons.water_drop_outlined,
@@ -117,12 +127,20 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
     return 'Boa noite';
   }
 
-  Widget _activeFastingCard(BuildContext context, FastingSession session) {
-    final remaining = session.goalDuration - session.elapsed;
-    final isOver = remaining.isNegative;
-    final rounded = Duration(
-      seconds: ((isOver ? -remaining : remaining).inSeconds + 30) ~/ 60 * 60,
+  /// Última sessão de jejum conhecida: a ativa, se houver, ou a mais
+  /// recente do histórico — para "Jejum iniciado"/"Fim de jejum"
+  /// continuarem visíveis mesmo depois do jejum terminar.
+  FastingSession? _lastFromHistory(AppState state) {
+    final history = state.history;
+    if (history.isEmpty) return null;
+    return history.reduce(
+      (a, b) => a.startTime.isAfter(b.startTime) ? a : b,
     );
+  }
+
+  Widget _activeFastingCard(BuildContext context, FastingSession session) {
+    final isOver = session.goalReached;
+    final rounded = session.remainingRounded;
     final hours = rounded.inHours;
     final minutes = rounded.inMinutes % 60;
 
