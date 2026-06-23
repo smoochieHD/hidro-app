@@ -22,6 +22,7 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
   void initState() {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      context.read<AppState>().checkFastCompletion();
       if (mounted) setState(() {});
     });
   }
@@ -80,7 +81,7 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
                       const SizedBox(height: 4),
                       Text(
                         session != null
-                            ? 'de ${session.goalDuration.inHours}h'
+                            ? 'de ${formatDurationMinutes(session.goalDuration.inMinutes)}'
                             : 'sem jejum ativo',
                         style: const TextStyle(
                             fontSize: 12, color: AppColors.textSecondary),
