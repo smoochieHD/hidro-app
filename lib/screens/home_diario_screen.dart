@@ -24,8 +24,10 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
     super.initState();
     // Atualiza o ecrã a cada minuto para que o tempo decorrido/restante
     // do jejum se mantenha correto sem precisar de reiniciar a app.
-    _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
-      context.read<AppState>().checkFastCompletion();
+    _ticker = Timer.periodic(const Duration(seconds: 5), (_) {
+      final appState = context.read<AppState>();
+      appState.checkFastCompletion();
+      appState.refreshFromStorage();
       if (mounted) setState(() {});
     });
   }
