@@ -66,6 +66,23 @@ class AppState extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Chamado periodicamente pela UI (ver _ticker nos ecrãs do tema
+  /// principal) e ao voltar ao primeiro plano. Deteta se o jejum ativo já
+  /// passou da meta e, nesse caso, garante que a notificação de fim é
+  /// mostrada — funciona como rede de segurança para quando a notificação
+  /// agendada pelo sistema (zonedSchedule) não dispara a tempo (ex: Doze
+  /// mode em alguns fabricantes Android com inexactAllowWhileIdle).
+  Future<void> checkFastCompletion() async {
+    final session = activeSession;
+    if (session == null) return;
+    if (!session.goalReached) return;
+    if (_fastCompletionNotifiedFor == session.startTime) return;
+    _fastCompletionNotifiedFor = session.startTime;
+    await _notifications.showFastEndNotificationNow();
+  }
+
+  DateTime? _fastCompletionNotifiedFor;
+
   // ---- Jejum ----
 
   Future<void> startFasting({int? minutes}) async {
