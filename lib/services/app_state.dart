@@ -68,17 +68,27 @@ class AppState extends ChangeNotifier {
 
   /// Chamado periodicamente pela UI (ver _ticker nos ecrãs do tema
   /// principal) e ao voltar ao primeiro plano. Deteta se o jejum ativo já
-  /// passou da meta e, nesse caso, garante que a notificação de fim é
-  /// mostrada — funciona como rede de segurança para quando a notificação
-  /// agendada pelo sistema (zonedSchedule) não dispara a tempo (ex: Doze
-  /// mode em alguns fabricantes Android com inexactAllowWhileIdle).
+  /// passou da meta e, nesse caso, termina-o automaticamente e mostra a
+  /// notificação de fim — funciona também como rede de segurança para
+  /// quando a notificação agendada pelo sistema não dispara a tempo.
   Future<void> checkFastCompletion() async {
     final session = activeSession;
     if (session == null) return;
     if (!session.goalReached) return;
     if (_fastCompletionNotifiedFor == session.startTime) return;
     _fastCompletionNotifiedFor = session.startTime;
+
+    // Termina automaticamente no instante planeado (não na hora em que a
+    // verificação correu), para o histórico ficar com a duração exata.
+    final finished = session.copyWith(endTime: session.plannedEndTime);
+    await storage.appendToHistory(finished);
+    activeSession = null;
+    await storage.saveActiveSession(null);
+    await storage.saveLastFinishedProtocolMinutes(session.goalDuration.inMinutes);
+    await _notifications.cancelFastEndNotification();
+
     await _notifications.showFastEndNotificationNow();
+    notifyListeners();
   }
 
   DateTime? _fastCompletionNotifiedFor;
@@ -208,6 +218,13 @@ class AppState extends ChangeNotifier {
   Future<void> setDefaultProtocolMinutes(int minutes) async {
     defaultProtocolMinutes = minutes;
     await storage.saveDefaultProtocolMinutes(minutes);
+    notifyListeners();
+  }
+
+  int get eatingWindowMinutes => storage.loadEatingWindowMinutes();
+
+  Future<void> setEatingWindowMinutes(int minutes) async {
+    await storage.saveEatingWindowMinutes(minutes);
     notifyListeners();
   }
 
