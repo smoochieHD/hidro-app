@@ -49,7 +49,13 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.auto_awesome, size: 16, color: AppColors.info),
+              Text(
+                _greeting(),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                ),
+              ),
               IconButton(
                 onPressed: () => context.read<AppState>().goToSettings(),
                 icon: const Icon(Icons.settings_outlined,
@@ -58,11 +64,15 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          const Text('A jejuar há',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          Text(
+            session != null
+                ? (session.goalReached ? 'Meta atingida' : 'A meio do jejum')
+                : 'Sem jejum ativo',
+            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 2),
           Text(
-            session != null ? _formatElapsed(session.elapsed) : '--h --m',
+            session != null ? _formatRemaining(session) : '--h --m',
             style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 18),
@@ -119,9 +129,21 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
     );
   }
 
-  String _formatElapsed(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes % 60;
-    return '${h}h ${m}m';
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bom dia';
+    if (hour < 19) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  String _formatRemaining(FastingSession session) {
+    final remaining = session.goalDuration - session.elapsed;
+    final isOver = remaining.isNegative;
+    final rounded = Duration(
+      seconds: ((isOver ? -remaining : remaining).inSeconds + 30) ~/ 60 * 60,
+    );
+    final h = rounded.inHours;
+    final m = rounded.inMinutes % 60;
+    return isOver ? 'há mais ${h}h ${m}m' : '${h}h ${m}m';
   }
 }
