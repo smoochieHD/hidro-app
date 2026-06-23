@@ -177,12 +177,12 @@ class NotificationService {
         AndroidNotificationAction(
           actionScheduleNext,
           'Marcar próximo',
-          showsUserInterface: true,
+          showsUserInterface: false,
         ),
         AndroidNotificationAction(
           actionDismiss,
           'Agora não',
-          showsUserInterface: true,
+          showsUserInterface: false,
         ),
       ],
     );
@@ -230,12 +230,12 @@ class NotificationService {
         AndroidNotificationAction(
           actionScheduleNext,
           'Marcar próximo',
-          showsUserInterface: true,
+          showsUserInterface: false,
         ),
         AndroidNotificationAction(
           actionDismiss,
           'Agora não',
-          showsUserInterface: true,
+          showsUserInterface: false,
         ),
       ],
     );
