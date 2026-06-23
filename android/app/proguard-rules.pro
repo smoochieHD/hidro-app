@@ -24,3 +24,11 @@
 # funcionalidade, mas o Flutter engine referencia-a sempre. Sem isto, o
 # R8 falha por "missing classes" mesmo sem a usarmos.
 -dontwarn com.google.android.play.core.**
+
+# --- flutter_local_notifications: os BroadcastReceivers nativos que
+# processam as ações dentro das notificações (ex: "Marcar próximo") são
+# invocados pelo sistema Android via reflexão/nome de classe. Sem esta
+# regra, o R8 pode renomear ou remover estas classes em build de release,
+# fazendo os botões da notificação parecerem não fazer nada — mesmo que
+# tudo funcione normalmente em build de debug.
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
