@@ -188,6 +188,47 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
   }
 
   Widget _startFastingCard(AppState state) {
+    final scheduled = state.scheduledNextFastTime;
+
+    if (scheduled != null) {
+      final remaining = scheduled.difference(DateTime.now());
+      final h = remaining.inHours;
+      final m = remaining.inMinutes % 60;
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Próximo jejum agendado',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              remaining.isNegative
+                  ? 'A começar...'
+                  : 'Daqui a ${h}h ${m}min',
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => state.startFasting(),
+                child: const Text('Iniciar agora'),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
