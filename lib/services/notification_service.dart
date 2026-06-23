@@ -112,6 +112,19 @@ class NotificationService {
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
+  /// Verifica se a app foi aberta a partir do toque numa ação da
+  /// notificação de fim de jejum (ex: o Android entregou o toque ao abrir
+  /// a app em vez de processar em background). Chamado no arranque da
+  /// app como rede de segurança extra.
+  Future<void> consumePendingLaunchAction() async {
+    await init();
+    final details = await _plugin.getNotificationAppLaunchDetails();
+    final response = details?.notificationResponse;
+    if (details?.didNotificationLaunchApp == true && response != null) {
+      await notificationBackgroundHandler(response);
+    }
+  }
+
   Future<void> init() async {
     if (_initialized) return;
     _initialized = true;
