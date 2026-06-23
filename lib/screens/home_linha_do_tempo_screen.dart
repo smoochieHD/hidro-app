@@ -23,6 +23,7 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
   void initState() {
     super.initState();
     _ticker = Timer.periodic(const Duration(seconds: 30), (_) {
+      context.read<AppState>().checkFastCompletion();
       if (mounted) setState(() {});
     });
   }
@@ -86,7 +87,7 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
               ),
               if (session != null)
                 Text(
-                  'Meta · ${session.goalDuration.inHours}h',
+                  'Meta · ${formatDurationMinutes(session.goalDuration.inMinutes)}',
                   style: const TextStyle(
                       fontSize: 11, color: AppColors.textSecondary),
                 ),
