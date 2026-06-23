@@ -48,8 +48,15 @@ void _notificationForegroundHandler(NotificationResponse response) {
 /// com a app completamente fechada.
 @pragma('vm:entry-point')
 Future<void> notificationBackgroundHandler(NotificationResponse response) async {
-  final actionId = response.actionId;
-  if (actionId == null) return;
+  // Em alguns dispositivos/versões do Android, o toque num botão de ação
+  // nem sempre chega com actionId preenchido (o sistema entrega-o como
+  // toque normal no corpo da notificação). Para a notificação de fim de
+  // jejum, qualquer toque que não seja explicitamente "Agora não" é
+  // tratado como "Marcar próximo" — é a ação mais útil por defeito, e
+  // evita a notificação desaparecer sem produzir nenhum efeito.
+  final actionId = response.actionId == actionDismiss
+      ? actionDismiss
+      : actionScheduleNext;
 
   // DartPluginRegistrant só é necessário quando este handler corre num
   // isolate novo (app fechada). Chamá-lo no isolate principal (app
