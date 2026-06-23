@@ -9,6 +9,9 @@ class StorageService {
   static const _keySessionHistory = 'fasting_session_history';
   static const _keyWaterGoal = 'water_goal_ml';
   static const _keyDefaultProtocolHours = 'default_protocol_hours';
+  static const _keyLastFinishedProtocolMinutes =
+      'last_finished_protocol_minutes';
+  static const _keyEatingWindowMinutes = 'eating_window_minutes';
   static const _keySelectedTheme = 'selected_theme';
   static const _keyIsPremium = 'is_premium';
   static const _keyOnboardingDone = 'onboarding_done';
@@ -120,6 +123,27 @@ class StorageService {
 
   int loadDefaultProtocolMinutes() =>
       _prefs.getInt(_keyDefaultProtocolHours) ?? 16 * 60;
+
+  /// Guarda a duração do último jejum terminado, para o handler de
+  /// notificação saber qual protocolo usar ao agendar o próximo, mesmo
+  /// quando a sessão já foi terminada automaticamente antes de o
+  /// utilizador tocar na ação da notificação.
+  Future<void> saveLastFinishedProtocolMinutes(int minutes) async {
+    await _prefs.setInt(_keyLastFinishedProtocolMinutes, minutes);
+  }
+
+  int? loadLastFinishedProtocolMinutes() =>
+      _prefs.getInt(_keyLastFinishedProtocolMinutes);
+
+  /// Duração da janela de alimentação, definida pelo utilizador de forma
+  /// independente do tempo de jejum (ex: 6h jejum + 30min a comer, em
+  /// ciclos curtos repetidos, em vez de assumir sempre 24h - jejum).
+  Future<void> saveEatingWindowMinutes(int minutes) async {
+    await _prefs.setInt(_keyEatingWindowMinutes, minutes);
+  }
+
+  int loadEatingWindowMinutes() =>
+      _prefs.getInt(_keyEatingWindowMinutes) ?? 8 * 60;
 
   Future<void> saveSelectedTheme(String themeId) async {
     await _prefs.setString(_keySelectedTheme, themeId);
