@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -27,6 +26,17 @@ const int fastStartNotificationId = 1002;
 final StreamController<String> notificationActionStream =
     StreamController<String>.broadcast();
 
+/// Handler usado quando a app está em primeiro plano (UI já ativa, todos
+/// os plugins já registados normalmente por main()). Mais simples que o
+/// handler de background: não precisa de inicializar plugins manualmente.
+void _notificationForegroundHandler(NotificationResponse response) {
+  final actionId = response.actionId;
+  if (actionId == null) return;
+  // Reaproveita a mesma lógica de negócio do handler de background,
+  // já que ambos têm de produzir o mesmo resultado.
+  notificationBackgroundHandler(response);
+}
+
 /// Handler que corre em background, possivelmente num isolate totalmente
 /// separado da UI (app fechada). NÃO pode tocar em AppState — qualquer
 /// instância viva nesse isolate não existe ou está desincronizada. Por
@@ -41,9 +51,10 @@ Future<void> notificationBackgroundHandler(NotificationResponse response) async 
   final actionId = response.actionId;
   if (actionId == null) return;
 
-  // Garante que este isolate tem acesso aos plugins (shared_preferences,
-  // notificações), já que pode ser um isolate novo, sem o registo normal
-  // que main() faz no isolate principal.
+  // DartPluginRegistrant só é necessário quando este handler corre num
+  // isolate novo (app fechada). Chamá-lo no isolate principal (app
+  // aberta) é redundante mas inofensivo — confirmado pela documentação
+  // oficial do plugin como seguro em ambos os casos.
   DartPluginRegistrant.ensureInitialized();
 
   final prefs = await SharedPreferences.getInstance();
@@ -157,13 +168,11 @@ class NotificationService {
     // mantém UTC, melhor do que rebentar.
   }
 
-  /// Agenda a notificação de fim de jejum para o instante exato [endTime],
-  /// com as ações "Marcar próximo" e "Agora não".
-  /// Mostra já (sem agendamento) a notificação de fim de jejum, com as
-  /// mesmas ações "Marcar próximo" / "Agora não". Usado como rede de
-  /// segurança pelo AppState quando deteta, por si só, que o jejum já
-  /// passou da meta — cobre o caso de a notificação agendada pelo
-  /// sistema não ter disparado a tempo.
+  /// Mostra (sem agendamento) a notificação de fim de jejum, com as
+  /// ações "Marcar próximo" / "Agora não". É a única fonte desta
+  /// notificação — chamada por AppState.checkFastCompletion() a cada 30s
+  /// enquanto a app está aberta, em vez de depender de zonedSchedule
+  /// (fonte de inconsistência com fuso horário e o modo Doze do Android).
   Future<void> showFastEndNotificationNow() async {
     await init();
     const androidDetails = AndroidNotificationDetails(
@@ -209,45 +218,13 @@ class NotificationService {
         ),
       ),
     );
-    if (endTime.isBefore(DateTime.now())) {
-      debugPrint('[Hidro] scheduleFastEndNotification: endTime ($endTime) '
-          'já passou (agora: ${DateTime.now()}), notificação NÃO agendada.');
-      return;
-    }
-
-    final scheduledDate = tz.TZDateTime.from(endTime, tz.local);
-    debugPrint('[Hidro] A agendar fim de jejum para $scheduledDate '
-        '(fuso local: ${tz.local.name})');
-
-    const androidDetails = AndroidNotificationDetails(
-      'fast_end_channel',
-      'Fim de jejum',
-      channelDescription: 'Avisa quando o jejum atual termina.',
-      importance: Importance.high,
-      priority: Priority.high,
-      actions: [
-        AndroidNotificationAction(
-          actionScheduleNext,
-          'Marcar próximo',
-          showsUserInterface: false,
-        ),
-        AndroidNotificationAction(
-          actionDismiss,
-          'Agora não',
-          showsUserInterface: false,
-        ),
-      ],
-    );
-
-    await _plugin.zonedSchedule(
-      fastEndNotificationId,
-      'O seu jejum terminou',
-      'Quer agendar o próximo jejum?',
-      scheduledDate,
-      const NotificationDetails(android: androidDetails),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-    );
-    debugPrint('[Hidro] Notificação de fim de jejum agendada com sucesso.');
+    // A notificação de fim de jejum, com as ações "Marcar próximo" /
+    // "Agora não", já não é agendada aqui via zonedSchedule — em vez
+    // disso, é mostrada de forma imediata e fiável por
+    // AppState.checkFastCompletion() (ver showFastEndNotificationNow),
+    // que corre a cada 30s enquanto a app está aberta. Isto evita
+    // inconsistências de fuso horário e do modo Doze do Android que
+    // afetavam notificações agendadas com ações interativas.
   }
 
   /// Cancela a notificação de fim de jejum agendada (ex: quando o jejum é
