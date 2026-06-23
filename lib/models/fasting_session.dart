@@ -86,14 +86,6 @@ class FastingSession {
       waterMl: waterMl,
     );
   }
-
-  /// Duração da janela de alimentação correspondente a este protocolo de
-  /// jejum, assumindo um ciclo de 24h (ex: jejum de 16h -> janela de 8h).
-  /// Protocolos acima de 24h (não suportados na v1) dão janela zero.
-  Duration get eatingWindowDuration {
-    final remaining = const Duration(hours: 24) - goalDuration;
-    return remaining.isNegative ? Duration.zero : remaining;
-  }
 }
 
 /// Protocolos de jejum predefinidos, com o número de horas de jejum.
