@@ -160,6 +160,40 @@ class NotificationService {
 
   /// Agenda a notificação de fim de jejum para o instante exato [endTime],
   /// com as ações "Marcar próximo" e "Agora não".
+  /// Mostra já (sem agendamento) a notificação de fim de jejum, com as
+  /// mesmas ações "Marcar próximo" / "Agora não". Usado como rede de
+  /// segurança pelo AppState quando deteta, por si só, que o jejum já
+  /// passou da meta — cobre o caso de a notificação agendada pelo
+  /// sistema não ter disparado a tempo.
+  Future<void> showFastEndNotificationNow() async {
+    await init();
+    const androidDetails = AndroidNotificationDetails(
+      'fast_end_channel',
+      'Fim de jejum',
+      channelDescription: 'Avisa quando o jejum atual termina.',
+      importance: Importance.high,
+      priority: Priority.high,
+      actions: [
+        AndroidNotificationAction(
+          actionScheduleNext,
+          'Marcar próximo',
+          showsUserInterface: true,
+        ),
+        AndroidNotificationAction(
+          actionDismiss,
+          'Agora não',
+          showsUserInterface: true,
+        ),
+      ],
+    );
+    await _plugin.show(
+      fastEndNotificationId,
+      'O seu jejum terminou',
+      'Quer agendar o próximo jejum?',
+      const NotificationDetails(android: androidDetails),
+    );
+  }
+
   Future<void> scheduleFastEndNotification(DateTime endTime) async {
     await init();
     await _plugin.show(
