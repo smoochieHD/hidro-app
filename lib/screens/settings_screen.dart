@@ -177,7 +177,7 @@ class SettingsScreen extends StatelessWidget {
                           ? const Icon(Icons.check, color: AppColors.info)
                           : null,
                       onTap: () {
-                        state.setDefaultProtocolMinutes(m);
+                        state.setDefaultProtocolMinutesWithAutoWindow(m);
                         Navigator.of(ctx).pop();
                       },
                     )),
@@ -193,7 +193,7 @@ class SettingsScreen extends StatelessWidget {
                       title: 'Duração do jejum',
                       subtitle: 'Define quanto tempo dura o jejum',
                       initialMinutes: state.defaultProtocolMinutes,
-                      onConfirm: state.setDefaultProtocolMinutes,
+                      onConfirm: state.setDefaultProtocolMinutesWithAutoWindow,
                     );
                   },
                 ),
