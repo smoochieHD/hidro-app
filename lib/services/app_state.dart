@@ -12,12 +12,16 @@ import '../theme/app_theme.dart';
 class AppState extends ChangeNotifier {
   final StorageService storage;
   final NotificationService _notifications = NotificationService();
-  StreamSubscription<String>? _notificationActionSub;
 
   FastingSession? activeSession;
   int defaultProtocolMinutes;
   HomeThemeId selectedTheme;
   bool isPremium;
+
+  /// Quando ligado, ao terminar um jejum (manualmente ou automaticamente
+  /// ao atingir a meta), o próximo jejum é agendado automaticamente para
+  /// o fim da janela de alimentação — sem precisar de tocar em nada.
+  bool autoScheduleNextCycle;
 
   /// Índice da aba ativa no MainShell (0=Início, 1=Estatísticas,
   /// 2=Histórico, 3=Definições). Vive aqui, em vez de no MainShell, para
@@ -32,16 +36,8 @@ class AppState extends ChangeNotifier {
     required this.defaultProtocolMinutes,
     required this.selectedTheme,
     required this.isPremium,
-  }) {
-    // Reage a ações tocadas na notificação de fim de jejum quando a app
-    // está em primeiro plano. Quando a app está em background/fechada, a
-    // ação ainda é processada pelo handler nativo (ver notification_service
-    // .dart), mas este listener garante que a UI reflete a mudança de
-    // imediato se a pessoa abrir a app pouco depois de tocar na ação.
-    _notificationActionSub = notificationActionStream.stream.listen((action) {
-      _handleNotificationAction(action);
-    });
-  }
+    required this.autoScheduleNextCycle,
+  });
 
   static Future<AppState> create() async {
     final storage = await StorageService.create();
@@ -51,49 +47,31 @@ class AppState extends ChangeNotifier {
       defaultProtocolMinutes: storage.loadDefaultProtocolMinutes(),
       selectedTheme: HomeThemeIdX.fromId(storage.loadSelectedTheme()),
       isPremium: storage.loadPremiumStatus(),
+      autoScheduleNextCycle: storage.loadAutoScheduleNextCycle(),
     );
     // Não bloqueia o arranque da app: a inicialização do plugin de
     // notificações (e o pedido de permissões ao sistema) corre em
     // paralelo, para o primeiro ecrã aparecer imediatamente.
     unawaited(state._notifications.init());
-    // Rede de segurança: se a app foi aberta pelo toque numa ação da
-    // notificação (em vez de processada em background pelo Android),
-    // processa essa ação agora e relê o estado atualizado.
-    await state._notifications.consumePendingLaunchAction();
-    state.activeSession = storage.loadActiveSession();
     await state.checkScheduledNextFast();
     return state;
   }
 
-  @override
-  void dispose() {
-    _notificationActionSub?.cancel();
-    super.dispose();
-  }
-
-  /// Relê do armazenamento partilhado os campos que podem ter sido
-  /// alterados por outro isolate (o handler de notificações em
-  /// background corre, possivelmente, num isolate totalmente separado —
-  /// streams como [notificationActionStream] não atravessam isolates,
-  /// por isso esta releitura periódica é a forma fiável de a UI detetar
-  /// essas mudanças, em vez de depender só do stream).
-  ///
-  /// Promove também um agendamento pendente (janela de alimentação) a
-  /// jejum ativo se a hora já tiver passado — sem isto, o jejum só
-  /// "começava" de facto ao reiniciar a app, mesmo que a notificação de
-  /// início já tivesse disparado.
+  /// Relê do armazenamento partilhado os campos que podem ter mudado
+  /// (ex: jejum agendado que já deve ter começado). Chamado
+  /// periodicamente pelos ecrãs do tema principal.
   Future<void> refreshFromStorage() async {
     await checkScheduledNextFast();
-    final freshActiveSession = storage.loadActiveSession();
-    activeSession = freshActiveSession;
+    activeSession = storage.loadActiveSession();
     notifyListeners();
   }
 
   /// Chamado periodicamente pela UI (ver _ticker nos ecrãs do tema
   /// principal) e ao voltar ao primeiro plano. Deteta se o jejum ativo já
   /// passou da meta e, nesse caso, termina-o automaticamente e mostra a
-  /// notificação de fim — funciona também como rede de segurança para
-  /// quando a notificação agendada pelo sistema não dispara a tempo.
+  /// notificação de fim. Se [autoScheduleNextCycle] estiver ligado,
+  /// agenda também o início do próximo jejum para o fim da janela de
+  /// alimentação.
   Future<void> checkFastCompletion() async {
     final session = activeSession;
     if (session == null) return;
@@ -109,8 +87,28 @@ class AppState extends ChangeNotifier {
     await storage.saveActiveSession(null);
     await storage.saveLastFinishedProtocolMinutes(session.goalDuration.inMinutes);
     await _notifications.cancelFastEndNotification();
-
     await _notifications.showFastEndNotificationNow();
+
+    if (autoScheduleNextCycle) {
+      await _scheduleNextCycle(session.goalDuration.inMinutes);
+    }
+
+    notifyListeners();
+  }
+
+  /// Agenda o início do próximo jejum para o fim da janela de
+  /// alimentação configurada, usando [protocolMinutes] no novo ciclo.
+  Future<void> _scheduleNextCycle(int protocolMinutes) async {
+    final eatingWindowMinutes = storage.loadEatingWindowMinutes();
+    final nextStart =
+        DateTime.now().add(Duration(minutes: eatingWindowMinutes));
+    await storage.saveScheduledNextFast(nextStart, protocolMinutes);
+    await _notifications.scheduleFastStartNotification(nextStart);
+  }
+
+  Future<void> setAutoScheduleNextCycle(bool value) async {
+    autoScheduleNextCycle = value;
+    await storage.saveAutoScheduleNextCycle(value);
     notifyListeners();
   }
 
@@ -156,18 +154,6 @@ class AppState extends ChangeNotifier {
     activeSession = null;
     await storage.saveActiveSession(null);
     await _notifications.cancelFastEndNotification();
-    notifyListeners();
-  }
-
-  /// Reage a uma ação tocada na notificação de fim de jejum. A lógica de
-  /// negócio (terminar sessão, agendar a próxima) já foi executada pelo
-  /// handler de background (ver notification_service.dart), que escreve
-  /// diretamente no armazenamento partilhado — mesmo com a app fechada.
-  /// Aqui, este método só precisa de "reler" esse estado já atualizado
-  /// para que a UI, se estiver visível, reflita a mudança imediatamente.
-  Future<void> _handleNotificationAction(String actionId) async {
-    if (actionId != actionScheduleNext && actionId != actionDismiss) return;
-    activeSession = storage.loadActiveSession();
     notifyListeners();
   }
 
@@ -241,6 +227,19 @@ class AppState extends ChangeNotifier {
   Future<void> setDefaultProtocolMinutes(int minutes) async {
     defaultProtocolMinutes = minutes;
     await storage.saveDefaultProtocolMinutes(minutes);
+    notifyListeners();
+  }
+
+  /// Define o protocolo de jejum e recalcula automaticamente o tempo de
+  /// comer como 24h - jejum (ex: 16h jejum -> 8h comer). Usado pelos
+  /// presets (16:8, 18:6, 20:4); a duração personalizada continua a
+  /// permitir definir os dois valores de forma independente, para ciclos
+  /// curtos repetidos.
+  Future<void> setDefaultProtocolMinutesWithAutoWindow(int minutes) async {
+    defaultProtocolMinutes = minutes;
+    await storage.saveDefaultProtocolMinutes(minutes);
+    final autoWindow = (24 * 60 - minutes).clamp(1, 24 * 60 - 1);
+    await storage.saveEatingWindowMinutes(autoWindow);
     notifyListeners();
   }
 
