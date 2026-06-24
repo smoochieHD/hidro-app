@@ -7,10 +7,6 @@ import 'package:timezone/timezone.dart' as tz;
 import 'storage_service.dart';
 import '../models/fasting_session.dart';
 
-/// IDs das ações dentro da notificação de fim de jejum.
-const String actionScheduleNext = 'schedule_next_fast';
-const String actionDismiss = 'dismiss_fast_notification';
-
 /// IDs fixos das notificações geridas por este serviço. Como só existe,
 /// no máximo, um jejum ativo e um próximo jejum agendado de cada vez,
 /// reutilizar sempre o mesmo ID substitui/cancela automaticamente a
@@ -18,99 +14,10 @@ const String actionDismiss = 'dismiss_fast_notification';
 const int fastEndNotificationId = 1001;
 const int fastStartNotificationId = 1002;
 
-/// Mensagens trocadas entre o handler de background e a UI em primeiro
-/// plano (quando a app está aberta no momento em que a ação é tocada).
-/// Usado só para a UI poder reagir de imediato; o handler de background
-/// já grava os dados de forma autossuficiente, por isso a app continua
-/// correta mesmo que nenhum listener esteja a ouvir este stream.
-final StreamController<String> notificationActionStream =
-    StreamController<String>.broadcast();
-
-/// Handler usado quando a app está em primeiro plano (UI já ativa, todos
-/// os plugins já registados normalmente por main()). Mais simples que o
-/// handler de background: não precisa de inicializar plugins manualmente.
-void _notificationForegroundHandler(NotificationResponse response) {
-  final actionId = response.actionId;
-  if (actionId == null) return;
-  // Reaproveita a mesma lógica de negócio do handler de background,
-  // já que ambos têm de produzir o mesmo resultado.
-  notificationBackgroundHandler(response);
-}
-
-/// Handler que corre em background, possivelmente num isolate totalmente
-/// separado da UI (app fechada). NÃO pode tocar em AppState — qualquer
-/// instância viva nesse isolate não existe ou está desincronizada. Por
-/// isso grava diretamente no armazenamento partilhado (SharedPreferences),
-/// que é seguro de aceder de qualquer isolate.
-///
-/// TEM de ser uma função de topo (fora de qualquer classe) e marcada com
-/// @pragma('vm:entry-point') para que o Android consiga invocá-la mesmo
-/// com a app completamente fechada.
-@pragma('vm:entry-point')
-Future<void> notificationBackgroundHandler(NotificationResponse response) async {
-  // Em alguns dispositivos/versões do Android, o toque num botão de ação
-  // nem sempre chega com actionId preenchido (o sistema entrega-o como
-  // toque normal no corpo da notificação). Para a notificação de fim de
-  // jejum, qualquer toque que não seja explicitamente "Agora não" é
-  // tratado como "Marcar próximo" — é a ação mais útil por defeito, e
-  // evita a notificação desaparecer sem produzir nenhum efeito.
-  final actionId = response.actionId == actionDismiss
-      ? actionDismiss
-      : actionScheduleNext;
-
-  // DartPluginRegistrant só é necessário quando este handler corre num
-  // isolate novo (app fechada). Chamá-lo no isolate principal (app
-  // aberta) é redundante mas inofensivo — confirmado pela documentação
-  // oficial do plugin como seguro em ambos os casos.
-  DartPluginRegistrant.ensureInitialized();
-
-  final prefs = await SharedPreferences.getInstance();
-  final storage = StorageService(prefs);
-  final notifications = NotificationService();
-  await notifications.init();
-
-  if (actionId == actionScheduleNext) {
-    // Termina o jejum atual (se existir) e regista-o no histórico.
-    final active = storage.loadActiveSession();
-    if (active != null) {
-      final finished = active.copyWith(endTime: DateTime.now());
-      await storage.appendToHistory(finished);
-      await storage.saveActiveSession(null);
-    }
-    await notifications.cancelFastEndNotification();
-
-    // Agenda o início do próximo jejum para o fim da janela de
-    // alimentação, definida de forma independente pelo utilizador (não é
-    // sempre 24h - jejum, para permitir ciclos curtos repetidos).
-    final protocolMinutes = active?.goalDuration.inMinutes ??
-        storage.loadLastFinishedProtocolMinutes() ??
-        storage.loadDefaultProtocolMinutes();
-    final eatingWindowMinutes = storage.loadEatingWindowMinutes();
-    final nextStart =
-        DateTime.now().add(Duration(minutes: eatingWindowMinutes));
-
-    await storage.saveScheduledNextFast(nextStart, protocolMinutes);
-    await notifications.scheduleFastStartNotification(nextStart);
-  } else if (actionId == actionDismiss) {
-    // "Agora não": apenas termina o jejum atual, sem agendar o próximo.
-    final active = storage.loadActiveSession();
-    if (active != null) {
-      final finished = active.copyWith(endTime: DateTime.now());
-      await storage.appendToHistory(finished);
-      await storage.saveActiveSession(null);
-    }
-    await notifications.cancelFastEndNotification();
-  }
-
-  // Só agora, com toda a escrita já concluída, avisa a UI em primeiro
-  // plano (caso esteja a escutar) para reler o estado atualizado.
-  notificationActionStream.add(actionId);
-}
-
-/// Serviço responsável por agendar, cancelar, e reagir às notificações de
-/// fim/início de jejum. Não sabe nada sobre AppState — apenas notifica
-/// através de [notificationActionStream] quando uma ação é escolhida,
-/// mantendo a separação entre lógica de notificações e lógica de negócio.
+/// Serviço responsável por mostrar e agendar as notificações de
+/// fim/início de jejum. O agendamento automático do próximo ciclo é
+/// controlado pelo toggle "Agendar ciclo" em AppState, não por ações
+/// dentro das notificações.
 class NotificationService {
   static final NotificationService _instance = NotificationService._();
   factory NotificationService() => _instance;
@@ -118,19 +25,6 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
-
-  /// Verifica se a app foi aberta a partir do toque numa ação da
-  /// notificação de fim de jejum (ex: o Android entregou o toque ao abrir
-  /// a app em vez de processar em background). Chamado no arranque da
-  /// app como rede de segurança extra.
-  Future<void> consumePendingLaunchAction() async {
-    await init();
-    final details = await _plugin.getNotificationAppLaunchDetails();
-    final response = details?.notificationResponse;
-    if (details?.didNotificationLaunchApp == true && response != null) {
-      await notificationBackgroundHandler(response);
-    }
-  }
 
   Future<void> init() async {
     if (_initialized) return;
@@ -143,12 +37,7 @@ class NotificationService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidSettings);
 
-    await _plugin.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: notificationBackgroundHandler,
-      onDidReceiveBackgroundNotificationResponse:
-          notificationBackgroundHandler,
-    );
+    await _plugin.initialize(initSettings);
 
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
@@ -188,11 +77,10 @@ class NotificationService {
     // mantém UTC, melhor do que rebentar.
   }
 
-  /// Mostra (sem agendamento) a notificação de fim de jejum, com as
-  /// ações "Marcar próximo" / "Agora não". É a única fonte desta
-  /// notificação — chamada por AppState.checkFastCompletion() a cada 30s
-  /// enquanto a app está aberta, em vez de depender de zonedSchedule
-  /// (fonte de inconsistência com fuso horário e o modo Doze do Android).
+  /// Mostra (sem agendamento) a notificação de fim de jejum. Sem ações:
+  /// agendar o próximo ciclo passou a ser feito diretamente na app
+  /// (toggle "Agendar ciclo"), porque os botões de ação em notificações
+  /// não se mostraram fiáveis em todos os dispositivos Android testados.
   Future<void> showFastEndNotificationNow() async {
     await init();
     const androidDetails = AndroidNotificationDetails(
@@ -201,27 +89,17 @@ class NotificationService {
       channelDescription: 'Avisa quando o jejum atual termina.',
       importance: Importance.high,
       priority: Priority.high,
-      actions: [
-        AndroidNotificationAction(
-          actionScheduleNext,
-          'Marcar próximo',
-          showsUserInterface: false,
-        ),
-        AndroidNotificationAction(
-          actionDismiss,
-          'Agora não',
-          showsUserInterface: false,
-        ),
-      ],
     );
     await _plugin.show(
       fastEndNotificationId,
       'O seu jejum terminou',
-      'Quer agendar o próximo jejum?',
+      'Abra a app para ver o resumo.',
       const NotificationDetails(android: androidDetails),
     );
   }
 
+  /// Mostra a notificação imediata "Jejum iniciado", como confirmação
+  /// visual ao tocar em "Iniciar jejum".
   Future<void> scheduleFastEndNotification(DateTime endTime) async {
     await init();
     await _plugin.show(
@@ -238,13 +116,6 @@ class NotificationService {
         ),
       ),
     );
-    // A notificação de fim de jejum, com as ações "Marcar próximo" /
-    // "Agora não", já não é agendada aqui via zonedSchedule — em vez
-    // disso, é mostrada de forma imediata e fiável por
-    // AppState.checkFastCompletion() (ver showFastEndNotificationNow),
-    // que corre a cada 30s enquanto a app está aberta. Isto evita
-    // inconsistências de fuso horário e do modo Doze do Android que
-    // afetavam notificações agendadas com ações interativas.
   }
 
   /// Cancela a notificação de fim de jejum agendada (ex: quando o jejum é
