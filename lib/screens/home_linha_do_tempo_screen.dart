@@ -120,16 +120,53 @@ class _HomeLinhaDoTempoScreenState extends State<HomeLinhaDoTempoScreen> {
                   ),
           ),
           const SizedBox(height: 20),
+          _autoScheduleToggle(state),
+          const SizedBox(height: 12),
           if (_lastSession(state) != null) ..._lastSessionRows(_lastSession(state)!),
           const SizedBox(height: 8),
           const Text('Hoje',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
-          const TodayWaterRow(),
+          if (session != null)
+            const TodayWaterRow()
+          else if (_lastSession(state) != null)
+            _waterSummaryRow(state, _lastSession(state)!),
           const SizedBox(height: 8),
           const WaterCard(),
         ],
       ),
+    );
+  }
+
+  Widget _autoScheduleToggle(AppState state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Agendar ciclo automaticamente',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Switch(
+            value: state.autoScheduleNextCycle,
+            onChanged: (v) => state.setAutoScheduleNextCycle(v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _waterSummaryRow(AppState state, FastingSession session) {
+    return _infoRow(
+      Icons.water_drop_outlined,
+      '${(session.waterMl / 250).round()} copos de água (resumo)',
+      '${session.waterMl}ml de ${state.waterGoalMl}ml neste ciclo',
     );
   }
 
