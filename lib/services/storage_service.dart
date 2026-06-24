@@ -18,6 +18,7 @@ class StorageService {
   static const _keyScheduledNextFastTime = 'scheduled_next_fast_time';
   static const _keyScheduledNextFastHours = 'scheduled_next_fast_hours';
   static const _keyPendingWaterMl = 'pending_water_ml';
+  static const _keyAutoScheduleNextCycle = 'auto_schedule_next_cycle';
 
   final SharedPreferences _prefs;
 
@@ -42,6 +43,16 @@ class StorageService {
   Future<void> clearPendingWater() async {
     await _prefs.remove(_keyPendingWaterMl);
   }
+
+  /// Liga/desliga o agendamento automático do próximo ciclo de jejum ao
+  /// terminar o atual. Por defeito desligado — o utilizador tem de optar
+  /// explicitamente por este comportamento.
+  Future<void> saveAutoScheduleNextCycle(bool value) async {
+    await _prefs.setBool(_keyAutoScheduleNextCycle, value);
+  }
+
+  bool loadAutoScheduleNextCycle() =>
+      _prefs.getBool(_keyAutoScheduleNextCycle) ?? false;
 
   // ---- Próximo jejum agendado (janela de alimentação em curso) ----
 
