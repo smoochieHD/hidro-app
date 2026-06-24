@@ -96,16 +96,24 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
             ),
           ],
           const SizedBox(height: 8),
-          _timelineItem(
-            icon: Icons.water_drop_outlined,
-            title: '${(state.currentWaterMl / 250).round()} copos de água',
-            subtitle:
-                '${state.currentWaterMl}ml de ${state.waterGoalMl}ml',
-            trailing: TextButton(
-              onPressed: () => state.addWater(250),
-              child: const Text('+ copo'),
+          if (session != null)
+            _timelineItem(
+              icon: Icons.water_drop_outlined,
+              title: '${(state.currentWaterMl / 250).round()} copos de água',
+              subtitle: '${state.currentWaterMl}ml de ${state.waterGoalMl}ml',
+              trailing: TextButton(
+                onPressed: () => state.addWater(250),
+                child: const Text('+ copo'),
+              ),
+            )
+          else if (lastSession != null)
+            _timelineItem(
+              icon: Icons.water_drop_outlined,
+              title:
+                  '${(lastSession.waterMl / 250).round()} copos de água (resumo)',
+              subtitle:
+                  '${lastSession.waterMl}ml de ${state.waterGoalMl}ml neste ciclo',
             ),
-          ),
           const SizedBox(height: 8),
           if (session != null)
             _timelineItem(
