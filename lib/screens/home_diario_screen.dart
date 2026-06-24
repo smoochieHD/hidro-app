@@ -71,6 +71,8 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
             _activeFastingCard(context, session)
           else
             _startFastingCard(state),
+          const SizedBox(height: 12),
+          _autoScheduleToggle(state),
           const SizedBox(height: 20),
           const Text(
             'Hoje',
@@ -117,6 +119,30 @@ class _HomeDiarioScreenState extends State<HomeDiarioScreen> {
           const SizedBox(height: 20),
           const WaterCard(),
           const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _autoScheduleToggle(AppState state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.backgroundSecondary,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Agendar ciclo automaticamente',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          Switch(
+            value: state.autoScheduleNextCycle,
+            onChanged: (v) => state.setAutoScheduleNextCycle(v),
+          ),
         ],
       ),
     );
