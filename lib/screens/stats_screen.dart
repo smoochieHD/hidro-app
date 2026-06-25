@@ -82,7 +82,14 @@ class StatsScreen extends StatelessWidget {
                 color: AppColors.backgroundSecondary,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: ConsistencyHeatmap(history: history),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ConsistencyHeatmap(history: history),
+                  const SizedBox(height: 20),
+                  DurationTrendChart(history: history),
+                ],
+              ),
             )
           else
             GestureDetector(
