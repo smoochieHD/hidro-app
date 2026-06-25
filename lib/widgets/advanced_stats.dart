@@ -244,3 +244,141 @@ class _DurationTrendChartState extends State<DurationTrendChart> {
     return day.subtract(Duration(days: day.weekday - 1));
   }
 }
+
+/// Insights automáticos calculados a partir do histórico: relação entre a
+/// hora de início e a probabilidade de completar a meta, e relação entre
+/// água bebida e taxa de sucesso. Exige um mínimo de sessões terminadas
+/// para evitar conclusões precipitadas com poucos dados.
+class SmartInsights extends StatelessWidget {
+  final List<FastingSession> history;
+  static const _minSessions = 5;
+
+  const SmartInsights({super.key, required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    if (history.length < _minSessions) {
+      return Text(
+        'Continua a registar jejuns para veres os teus padrões '
+        '(faltam ${_minSessions - history.length}).',
+        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      );
+    }
+
+    final startTimeInsight = _startTimeInsight();
+    final waterInsight = _waterInsight();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (startTimeInsight != null) ...[
+          _insightRow(Icons.schedule, startTimeInsight),
+          const SizedBox(height: 10),
+        ],
+        if (waterInsight != null) _insightRow(Icons.water_drop_outlined, waterInsight),
+        if (startTimeInsight == null && waterInsight == null)
+          const Text(
+            'Ainda não encontrámos um padrão claro nos teus dados.',
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+      ],
+    );
+  }
+
+  Widget _insightRow(IconData icon, String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          margin: const EdgeInsets.only(top: 1),
+          decoration: const BoxDecoration(
+            color: AppColors.tealBackground,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 14, color: AppColors.teal),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(text, style: const TextStyle(fontSize: 12, height: 1.3)),
+        ),
+      ],
+    );
+  }
+
+  /// Divide os jejuns em "começados antes" vs "começados depois" da
+  /// mediana das horas de início (em minutos desde a meia-noite), e
+  /// compara a taxa de sucesso (meta atingida) entre os dois grupos.
+  /// Usar a mediana dos próprios dados, em vez de um corte fixo (ex:
+  /// 20h), torna o insight relevante mesmo que todos os jejuns comecem
+  /// tipicamente à noite.
+  String? _startTimeInsight() {
+    final minutesOfDay = history
+        .map((s) => s.startTime.hour * 60 + s.startTime.minute)
+        .toList()
+      ..sort();
+    if (minutesOfDay.length < _minSessions) return null;
+
+    final medianMinute = minutesOfDay[minutesOfDay.length ~/ 2];
+
+    final earlier = history.where(
+        (s) => (s.startTime.hour * 60 + s.startTime.minute) < medianMinute);
+    final later = history.where(
+        (s) => (s.startTime.hour * 60 + s.startTime.minute) >= medianMinute);
+
+    if (earlier.isEmpty || later.isEmpty) return null;
+
+    final earlierRate =
+        earlier.where((s) => s.goalReached).length / earlier.length;
+    final laterRate = later.where((s) => s.goalReached).length / later.length;
+
+    final diff = (earlierRate - laterRate) * 100;
+    if (diff.abs() < 5) return null; // diferença pequena, não vale destacar
+
+    final hour = medianMinute ~/ 60;
+    final minute = medianMinute % 60;
+    final cutoff =
+        '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+
+    if (diff > 0) {
+      return 'Jejuns iniciados antes das $cutoff têm ${diff.round()}% mais '
+          'probabilidade de completar a meta.';
+    } else {
+      return 'Jejuns iniciados depois das $cutoff têm ${(-diff).round()}% '
+          'mais probabilidade de completar a meta.';
+    }
+  }
+
+  /// Compara a taxa de sucesso entre sessões com água acima da mediana de
+  /// água bebida e sessões com água abaixo dela.
+  String? _waterInsight() {
+    final waterAmounts = history.map((s) => s.waterMl).toList()..sort();
+    if (waterAmounts.length < _minSessions) return null;
+
+    final medianWater = waterAmounts[waterAmounts.length ~/ 2];
+    if (medianWater == 0) return null; // sem variação suficiente nos dados
+
+    final moreWater = history.where((s) => s.waterMl >= medianWater);
+    final lessWater = history.where((s) => s.waterMl < medianWater);
+
+    if (moreWater.isEmpty || lessWater.isEmpty) return null;
+
+    final moreRate =
+        moreWater.where((s) => s.goalReached).length / moreWater.length;
+    final lessRate =
+        lessWater.where((s) => s.goalReached).length / lessWater.length;
+
+    final diff = (moreRate - lessRate) * 100;
+    if (diff.abs() < 5) return null;
+
+    final liters = (medianWater / 1000).toStringAsFixed(1);
+    if (diff > 0) {
+      return 'Dias com mais de ${liters}L de água têm ${diff.round()}% mais '
+          'taxa de sucesso.';
+    } else {
+      return 'Dias com menos de ${liters}L de água têm ${(-diff).round()}% '
+          'mais taxa de sucesso.';
+    }
+  }
+}
