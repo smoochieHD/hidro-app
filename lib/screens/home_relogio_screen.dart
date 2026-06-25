@@ -116,11 +116,13 @@ class _HomeRelogioScreenState extends State<HomeRelogioScreen> {
           const SizedBox(height: 20),
           _autoScheduleToggle(state),
           const SizedBox(height: 12),
-          if (_lastSession(state) != null) ..._lastSessionRows(_lastSession(state)!),
-          const SizedBox(height: 8),
           const Text('Hoje',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           const SizedBox(height: 10),
+          if (_lastSession(state) != null) ...[
+            ..._lastSessionRows(_lastSession(state)!),
+            const SizedBox(height: 8),
+          ],
           if (session != null)
             const TodayWaterRow()
           else if (_lastSession(state) != null)
