@@ -88,6 +88,10 @@ class StatsScreen extends StatelessWidget {
                   ConsistencyHeatmap(history: history),
                   const SizedBox(height: 20),
                   DurationTrendChart(history: history),
+                  const SizedBox(height: 20),
+                  const Divider(height: 1, color: AppColors.borderTertiary),
+                  const SizedBox(height: 16),
+                  SmartInsights(history: history),
                 ],
               ),
             )
