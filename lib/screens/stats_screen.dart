@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/fasting_session.dart';
 import '../services/app_state.dart';
 import '../theme/app_theme.dart';
+import '../widgets/advanced_stats.dart';
 import 'paywall_screen.dart';
 
 class StatsScreen extends StatelessWidget {
@@ -73,38 +74,44 @@ class StatsScreen extends StatelessWidget {
                     ),
                   ),
                 )),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: () {
-              if (!state.isPremium) {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PaywallScreen()),
-                );
-              }
-            },
-            child: Container(
+          const SizedBox(height: 20),
+          if (state.isPremium)
+            Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: AppColors.backgroundSecondary,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderTertiary),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Análises avançadas',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
-                      SizedBox(height: 2),
-                      Text('Tendências e correlações',
-                          style: TextStyle(
-                              fontSize: 11, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                  if (!state.isPremium)
+              child: ConsistencyHeatmap(history: history),
+            )
+          else
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PaywallScreen()),
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundSecondary,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.borderTertiary),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Análises avançadas',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
+                        SizedBox(height: 2),
+                        Text('Tendências e correlações',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary)),
+                      ],
+                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
@@ -115,14 +122,11 @@ class StatsScreen extends StatelessWidget {
                       child: const Text('premium',
                           style: TextStyle(
                               fontSize: 11, color: AppColors.warning)),
-                    )
-                  else
-                    const Icon(Icons.chevron_right,
-                        color: AppColors.textSecondary),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
