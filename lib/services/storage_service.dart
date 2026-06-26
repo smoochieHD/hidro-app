@@ -22,6 +22,8 @@ class StorageService {
   static const _keyAutoScheduleNextCycle = 'auto_schedule_next_cycle';
   static const _keyFastingProfiles = 'fasting_profiles';
   static const _keyActiveProfileId = 'active_profile_id';
+  static const _keyWeeklyReportEnabled = 'weekly_report_enabled';
+  static const _keyWaterRemindersEnabled = 'water_reminders_enabled';
 
   final SharedPreferences _prefs;
 
@@ -206,4 +208,18 @@ class StorageService {
   }
 
   String? loadActiveProfileId() => _prefs.getString(_keyActiveProfileId);
+
+  Future<void> saveWeeklyReportEnabled(bool value) async {
+    await _prefs.setBool(_keyWeeklyReportEnabled, value);
+  }
+
+  bool loadWeeklyReportEnabled() =>
+      _prefs.getBool(_keyWeeklyReportEnabled) ?? false;
+
+  Future<void> saveWaterRemindersEnabled(bool value) async {
+    await _prefs.setBool(_keyWaterRemindersEnabled, value);
+  }
+
+  bool loadWaterRemindersEnabled() =>
+      _prefs.getBool(_keyWaterRemindersEnabled) ?? false;
 }
