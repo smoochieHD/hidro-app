@@ -16,6 +16,11 @@ dependencies:
   flutter_local_notifications: 19.4.1
   timezone: ^0.10.0
   fl_chart: ^0.71.0
+  share_plus: ^10.1.4
+  file_picker: ^8.1.7
+  share_plus: ^10.1.4
+  file_picker: ^8.1.7
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
