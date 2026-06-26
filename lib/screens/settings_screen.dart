@@ -110,6 +110,47 @@ class SettingsScreen extends StatelessWidget {
             value: '${(state.waterGoalMl / 1000).toStringAsFixed(1)} L',
             onTap: () => _showWaterGoalPicker(context, state),
           ),
+          const SizedBox(height: 14),
+          _sectionLabel('Notificações'),
+          _toggleRow(
+            label: 'Relatório semanal',
+            subtitle: 'Domingo às 19h, com o resumo da semana',
+            value: state.weeklyReportEnabled,
+            onChanged: (v) => state.setWeeklyReportEnabled(v),
+          ),
+          _toggleRow(
+            label: 'Lembretes de água',
+            subtitle: 'Avisos ao longo do dia (8h-22h)',
+            value: state.waterRemindersEnabled,
+            onChanged: (v) => state.setWaterRemindersEnabled(v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toggleRow({
+    required String label,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 14)),
+                Text(subtitle,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary)),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
