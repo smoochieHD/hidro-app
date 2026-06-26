@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/fasting_session.dart';
 import '../services/app_state.dart';
+import '../services/backup_service.dart';
 import '../theme/app_theme.dart';
 import 'paywall_screen.dart';
 import 'profiles_screen.dart';
@@ -124,8 +125,49 @@ class SettingsScreen extends StatelessWidget {
             value: state.waterRemindersEnabled,
             onChanged: (v) => state.setWaterRemindersEnabled(v),
           ),
+          const SizedBox(height: 14),
+          _sectionLabel('Backup'),
+          _settingRow(
+            context,
+            label: 'Exportar dados',
+            value: '',
+            onTap: () => _exportBackup(context),
+          ),
+          _settingRow(
+            context,
+            label: 'Importar dados',
+            value: '',
+            onTap: () => _importBackup(context),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _exportBackup(BuildContext context) async {
+    final state = context.read<AppState>();
+    try {
+      await BackupService(state.storage).exportAndShare();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível exportar o backup.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importBackup(BuildContext context) async {
+    final state = context.read<AppState>();
+    final error = await BackupService(state.storage).pickAndImport();
+    if (!context.mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      return;
+    }
+    await state.refreshFromStorage();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Backup importado com sucesso.')),
     );
   }
 
