@@ -5,6 +5,7 @@ import '../models/fasting_session.dart';
 import '../services/app_state.dart';
 import '../theme/app_theme.dart';
 import 'paywall_screen.dart';
+import 'profiles_screen.dart';
 import 'theme_picker_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -92,6 +93,14 @@ class SettingsScreen extends StatelessWidget {
             label: 'Tempo de comer',
             value: formatDurationMinutes(state.eatingWindowMinutes),
             onTap: () => _showEatingWindowPicker(context, state),
+          ),
+          _settingRow(
+            context,
+            label: 'Perfis',
+            value: state.profiles.isEmpty ? 'Nenhum' : '${state.profiles.length}',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfilesScreen()),
+            ),
           ),
           const SizedBox(height: 14),
           _sectionLabel('Água'),
