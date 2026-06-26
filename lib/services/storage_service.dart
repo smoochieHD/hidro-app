@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/fasting_session.dart';
+import '../models/fasting_profile.dart';
 
 /// Camada única responsável por guardar e ler todos os dados da app
 /// localmente no telemóvel. Nenhum dado é enviado para qualquer servidor.
@@ -19,6 +20,8 @@ class StorageService {
   static const _keyScheduledNextFastHours = 'scheduled_next_fast_hours';
   static const _keyPendingWaterMl = 'pending_water_ml';
   static const _keyAutoScheduleNextCycle = 'auto_schedule_next_cycle';
+  static const _keyFastingProfiles = 'fasting_profiles';
+  static const _keyActiveProfileId = 'active_profile_id';
 
   final SharedPreferences _prefs;
 
@@ -173,4 +176,34 @@ class StorageService {
   }
 
   bool isOnboardingDone() => _prefs.getBool(_keyOnboardingDone) ?? false;
+
+  // ---- Perfis de jejum guardados ----
+
+  Future<void> saveFastingProfiles(List<FastingProfile> profiles) async {
+    final encoded = profiles.map((p) => p.toJson()).toList();
+    await _prefs.setString(_keyFastingProfiles, jsonEncode(encoded));
+  }
+
+  List<FastingProfile> loadFastingProfiles() {
+    final raw = _prefs.getString(_keyFastingProfiles);
+    if (raw == null) return [];
+    try {
+      final list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((e) => FastingProfile.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> saveActiveProfileId(String? id) async {
+    if (id == null) {
+      await _prefs.remove(_keyActiveProfileId);
+      return;
+    }
+    await _prefs.setString(_keyActiveProfileId, id);
+  }
+
+  String? loadActiveProfileId() => _prefs.getString(_keyActiveProfileId);
 }
