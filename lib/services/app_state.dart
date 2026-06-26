@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/fasting_session.dart';
+import '../models/fasting_profile.dart';
 import '../services/storage_service.dart';
 import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
@@ -23,6 +24,11 @@ class AppState extends ChangeNotifier {
   /// o fim da janela de alimentação — sem precisar de tocar em nada.
   bool autoScheduleNextCycle;
 
+  /// Perfis de jejum guardados (ex: "Dias de trabalho", "Fim de semana"),
+  /// cada um com o seu próprio protocolo, janela de comer e meta de água.
+  List<FastingProfile> profiles;
+  String? activeProfileId;
+
   /// Índice da aba ativa no MainShell (0=Início, 1=Estatísticas,
   /// 2=Histórico, 3=Definições). Vive aqui, em vez de no MainShell, para
   /// que qualquer ecrã (ex: o ícone de definições nos temas do ecrã
@@ -37,6 +43,8 @@ class AppState extends ChangeNotifier {
     required this.selectedTheme,
     required this.isPremium,
     required this.autoScheduleNextCycle,
+    required this.profiles,
+    required this.activeProfileId,
   });
 
   static Future<AppState> create() async {
@@ -48,6 +56,8 @@ class AppState extends ChangeNotifier {
       selectedTheme: HomeThemeIdX.fromId(storage.loadSelectedTheme()),
       isPremium: storage.loadPremiumStatus(),
       autoScheduleNextCycle: storage.loadAutoScheduleNextCycle(),
+      profiles: storage.loadFastingProfiles(),
+      activeProfileId: storage.loadActiveProfileId(),
     );
     // Não bloqueia o arranque da app: a inicialização do plugin de
     // notificações (e o pedido de permissões ao sistema) corre em
@@ -262,6 +272,55 @@ class AppState extends ChangeNotifier {
   Future<void> setPremiumStatus(bool value) async {
     isPremium = value;
     await storage.savePremiumStatus(value);
+    notifyListeners();
+  }
+
+  // ---- Perfis de jejum ----
+
+  /// Guarda as definições atuais (protocolo, janela de comer, meta de
+  /// água) como um novo perfil com o nome dado.
+  Future<void> saveCurrentAsProfile(String name) async {
+    final profile = FastingProfile(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
+      name: name,
+      protocolMinutes: defaultProtocolMinutes,
+      eatingWindowMinutes: eatingWindowMinutes,
+      waterGoalMl: waterGoalMl,
+    );
+    profiles = [...profiles, profile];
+    await storage.saveFastingProfiles(profiles);
+    notifyListeners();
+  }
+
+  /// Aplica um perfil guardado: atualiza protocolo, janela de comer e
+  /// meta de água para os valores desse perfil. Não afeta nenhum jejum
+  /// já em curso — só passa a valer a partir do próximo jejum.
+  Future<void> applyProfile(String profileId) async {
+    FastingProfile? profile;
+    for (final p in profiles) {
+      if (p.id == profileId) {
+        profile = p;
+        break;
+      }
+    }
+    if (profile == null) return;
+
+    defaultProtocolMinutes = profile.protocolMinutes;
+    await storage.saveDefaultProtocolMinutes(profile.protocolMinutes);
+    await storage.saveEatingWindowMinutes(profile.eatingWindowMinutes);
+    await storage.saveWaterGoal(profile.waterGoalMl);
+    activeProfileId = profileId;
+    await storage.saveActiveProfileId(profileId);
+    notifyListeners();
+  }
+
+  Future<void> deleteProfile(String profileId) async {
+    profiles = profiles.where((p) => p.id != profileId).toList();
+    await storage.saveFastingProfiles(profiles);
+    if (activeProfileId == profileId) {
+      activeProfileId = null;
+      await storage.saveActiveProfileId(null);
+    }
     notifyListeners();
   }
 
