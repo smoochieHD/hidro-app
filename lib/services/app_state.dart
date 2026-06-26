@@ -29,6 +29,9 @@ class AppState extends ChangeNotifier {
   List<FastingProfile> profiles;
   String? activeProfileId;
 
+  bool weeklyReportEnabled;
+  bool waterRemindersEnabled;
+
   /// Índice da aba ativa no MainShell (0=Início, 1=Estatísticas,
   /// 2=Histórico, 3=Definições). Vive aqui, em vez de no MainShell, para
   /// que qualquer ecrã (ex: o ícone de definições nos temas do ecrã
@@ -45,6 +48,8 @@ class AppState extends ChangeNotifier {
     required this.autoScheduleNextCycle,
     required this.profiles,
     required this.activeProfileId,
+    required this.weeklyReportEnabled,
+    required this.waterRemindersEnabled,
   });
 
   static Future<AppState> create() async {
@@ -58,11 +63,22 @@ class AppState extends ChangeNotifier {
       autoScheduleNextCycle: storage.loadAutoScheduleNextCycle(),
       profiles: storage.loadFastingProfiles(),
       activeProfileId: storage.loadActiveProfileId(),
+      weeklyReportEnabled: storage.loadWeeklyReportEnabled(),
+      waterRemindersEnabled: storage.loadWaterRemindersEnabled(),
     );
     // Não bloqueia o arranque da app: a inicialização do plugin de
     // notificações (e o pedido de permissões ao sistema) corre em
     // paralelo, para o primeiro ecrã aparecer imediatamente.
     unawaited(state._notifications.init());
+    if (state.weeklyReportEnabled) {
+      unawaited(state._scheduleWeeklyReportNotification());
+    }
+    if (state.waterRemindersEnabled) {
+      unawaited(state._notifications.scheduleWaterReminders(
+        wakeHour: 8,
+        sleepHour: 22,
+      ));
+    }
     await state.checkScheduledNextFast();
     return state;
   }
@@ -322,6 +338,83 @@ class AppState extends ChangeNotifier {
       await storage.saveActiveProfileId(null);
     }
     notifyListeners();
+  }
+
+  // ---- Relatório semanal e lembretes de água ----
+
+  Future<void> setWeeklyReportEnabled(bool value) async {
+    weeklyReportEnabled = value;
+    await storage.saveWeeklyReportEnabled(value);
+    if (value) {
+      await _scheduleWeeklyReportNotification();
+    } else {
+      await _notifications.cancelWeeklyReport();
+    }
+    notifyListeners();
+  }
+
+  Future<void> setWaterRemindersEnabled(bool value) async {
+    waterRemindersEnabled = value;
+    await storage.saveWaterRemindersEnabled(value);
+    if (value) {
+      await _notifications.scheduleWaterReminders(wakeHour: 8, sleepHour: 22);
+    } else {
+      await _notifications.cancelWaterReminders();
+    }
+    notifyListeners();
+  }
+
+  /// Calcula os números da última semana (Segunda a Domingo) e a maior
+  /// sequência de sempre, e agenda a notificação recorrente de domingo.
+  Future<void> _scheduleWeeklyReportNotification() async {
+    final allHistory = history;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final mondayThisWeek = today.subtract(Duration(days: today.weekday - 1));
+
+    final daysWithCompletedFast = <DateTime>{};
+    for (final s in allHistory) {
+      final day =
+          DateTime(s.startTime.year, s.startTime.month, s.startTime.day);
+      if (!day.isBefore(mondayThisWeek) && s.goalReached) {
+        daysWithCompletedFast.add(day);
+      }
+    }
+
+    final bestStreak = _longestStreakEver(allHistory);
+
+    await _notifications.scheduleWeeklyReport(
+      weeklyCount: daysWithCompletedFast.length,
+      weeklyTotal: 7,
+      bestStreak: bestStreak,
+    );
+  }
+
+  /// Maior sequência de dias consecutivos com jejum completado, em todo
+  /// o histórico (não só a sequência atual).
+  int _longestStreakEver(List<FastingSession> sessions) {
+    if (sessions.isEmpty) return 0;
+    final days = sessions
+        .where((s) => s.goalReached)
+        .map((s) =>
+            DateTime(s.startTime.year, s.startTime.month, s.startTime.day))
+        .toSet()
+        .toList()
+      ..sort();
+
+    var longest = 0;
+    var current = 0;
+    DateTime? previous;
+    for (final day in days) {
+      if (previous != null && day.difference(previous).inDays == 1) {
+        current++;
+      } else {
+        current = 1;
+      }
+      if (current > longest) longest = current;
+      previous = day;
+    }
+    return longest;
   }
 
   // ---- Navegação entre abas ----
