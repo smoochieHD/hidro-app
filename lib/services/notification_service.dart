@@ -13,6 +13,8 @@ import '../models/fasting_session.dart';
 /// notificação anterior em vez de acumular notificações antigas.
 const int fastEndNotificationId = 1001;
 const int fastStartNotificationId = 1002;
+const int weeklyReportNotificationId = 1003;
+const int waterReminderBaseId = 2000;
 
 /// Serviço responsável por mostrar e agendar as notificações de
 /// fim/início de jejum. O agendamento automático do próximo ciclo é
@@ -53,6 +55,18 @@ class NotificationService {
       'Início de jejum',
       description: 'Avisa quando um jejum agendado começa.',
       importance: Importance.high,
+    ));
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      'weekly_report_channel',
+      'Relatório semanal',
+      description: 'Resumo semanal de progresso.',
+      importance: Importance.defaultImportance,
+    ));
+    await android?.createNotificationChannel(const AndroidNotificationChannel(
+      'water_reminder_channel',
+      'Lembretes de água',
+      description: 'Lembra de beber água durante o dia.',
+      importance: Importance.defaultImportance,
     ));
   }
 
@@ -155,5 +169,99 @@ class NotificationService {
   Future<void> cancelFastStartNotification() async {
     await init();
     await _plugin.cancel(fastStartNotificationId);
+  }
+
+  /// Agenda o relatório semanal recorrente, todos os domingos à hora
+  /// indicada. Repete automaticamente todas as semanas
+  /// (matchDateTimeComponents), sem precisar de reagendar manualmente.
+  Future<void> scheduleWeeklyReport({
+    required int weeklyCount,
+    required int weeklyTotal,
+    required int bestStreak,
+  }) async {
+    await init();
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(
+        tz.local, now.year, now.month, now.day, 19); // 19h
+    while (scheduled.weekday != DateTime.sunday || scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+
+    const androidDetails = AndroidNotificationDetails(
+      'weekly_report_channel',
+      'Relatório semanal',
+      channelDescription: 'Resumo semanal de progresso.',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+
+    await _plugin.zonedSchedule(
+      weeklyReportNotificationId,
+      'O teu resumo da semana',
+      'Cumpriste $weeklyCount de $weeklyTotal dias. Sequência recorde: '
+          '$bestStreak dias.',
+      scheduled,
+      const NotificationDetails(android: androidDetails),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+    );
+  }
+
+  Future<void> cancelWeeklyReport() async {
+    await init();
+    await _plugin.cancel(weeklyReportNotificationId);
+  }
+
+  /// Agenda até 3 lembretes diários de água, espaçados ao longo da
+  /// janela de comer da pessoa (quando normalmente está acordada e pode
+  /// beber água), repetindo todos os dias à mesma hora.
+  Future<void> scheduleWaterReminders({
+    required int wakeHour,
+    required int sleepHour,
+  }) async {
+    await init();
+    await cancelWaterReminders();
+
+    final activeHours = (sleepHour - wakeHour).clamp(2, 18);
+    final slots = [
+      wakeHour + (activeHours * 0.25).round(),
+      wakeHour + (activeHours * 0.5).round(),
+      wakeHour + (activeHours * 0.75).round(),
+    ];
+
+    const androidDetails = AndroidNotificationDetails(
+      'water_reminder_channel',
+      'Lembretes de água',
+      channelDescription: 'Lembra de beber água durante o dia.',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    );
+
+    for (var i = 0; i < slots.length; i++) {
+      final hour = slots[i].clamp(0, 23);
+      final now = tz.TZDateTime.now(tz.local);
+      var scheduled =
+          tz.TZDateTime(tz.local, now.year, now.month, now.day, hour);
+      if (scheduled.isBefore(now)) {
+        scheduled = scheduled.add(const Duration(days: 1));
+      }
+
+      await _plugin.zonedSchedule(
+        waterReminderBaseId + i,
+        'Hora de beber água',
+        'Mantém a hidratação durante o dia.',
+        scheduled,
+        const NotificationDetails(android: androidDetails),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
+  }
+
+  Future<void> cancelWaterReminders() async {
+    await init();
+    for (var i = 0; i < 3; i++) {
+      await _plugin.cancel(waterReminderBaseId + i);
+    }
   }
 }
