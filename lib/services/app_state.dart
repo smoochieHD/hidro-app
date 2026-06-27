@@ -261,10 +261,17 @@ class AppState extends ChangeNotifier {
   /// presets (16:8, 18:6, 20:4); a duração personalizada continua a
   /// permitir definir os dois valores de forma independente, para ciclos
   /// curtos repetidos.
+  /// Define o protocolo de jejum e recalcula automaticamente o tempo de
+  /// comer. Para protocolos até 24h, usa 24h - jejum (ex: 16h jejum ->
+  /// 8h comer). Para protocolos mais longos (ex: 36h, jejum em dias
+  /// alternados), a janela de comer passa a ser um dia inteiro (24h),
+  /// já que a subtração deixaria de fazer sentido.
   Future<void> setDefaultProtocolMinutesWithAutoWindow(int minutes) async {
     defaultProtocolMinutes = minutes;
     await storage.saveDefaultProtocolMinutes(minutes);
-    final autoWindow = (24 * 60 - minutes).clamp(1, 24 * 60 - 1);
+    final autoWindow = minutes >= 24 * 60
+        ? 24 * 60
+        : (24 * 60 - minutes).clamp(1, 24 * 60 - 1);
     await storage.saveEatingWindowMinutes(autoWindow);
     notifyListeners();
   }
