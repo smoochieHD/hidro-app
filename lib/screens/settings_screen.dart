@@ -86,7 +86,7 @@ class SettingsScreen extends StatelessWidget {
           _settingRow(
             context,
             label: 'Protocolo',
-            value: formatDurationMinutes(state.defaultProtocolMinutes),
+            value: protocolLabel(state.defaultProtocolMinutes),
             onTap: () => _showProtocolPicker(context, state),
           ),
           _settingRow(
@@ -245,13 +245,24 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showProtocolPicker(BuildContext context, AppState state) {    showModalBottomSheet(
+  void _showProtocolPicker(BuildContext context, AppState state) {
+    showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final presets = [16 * 60, 18 * 60, 20 * 60];
+        // (minutos, rótulo a mostrar). OMAD (23:1) e jejum em dias
+        // alternados (36h, cobrindo um dia inteiro entre refeições) são
+        // protocolos de duração — cabem na mesma estrutura dos presets
+        // horários, só com nomes próprios em vez de "X:Y".
+        final presets = [
+          (16 * 60, '16:8'),
+          (18 * 60, '18:6'),
+          (20 * 60, '20:4'),
+          (23 * 60, 'OMAD · 23:1'),
+          (36 * 60, 'Dias alternados · 36h'),
+        ];
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -263,13 +274,14 @@ class SettingsScreen extends StatelessWidget {
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 14),
-                ...presets.map((m) => ListTile(
-                      title: Text('${m ~/ 60}:${24 - m ~/ 60}'),
-                      trailing: state.defaultProtocolMinutes == m
+                ...presets.map((preset) => ListTile(
+                      title: Text(preset.$2),
+                      trailing: state.defaultProtocolMinutes == preset.$1
                           ? const Icon(Icons.check, color: AppColors.info)
                           : null,
                       onTap: () {
-                        state.setDefaultProtocolMinutesWithAutoWindow(m);
+                        state.setDefaultProtocolMinutesWithAutoWindow(
+                            preset.$1);
                         Navigator.of(ctx).pop();
                       },
                     )),
