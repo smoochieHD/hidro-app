@@ -9,6 +9,14 @@ String formatDurationMinutes(int totalMinutes) {
   return '${m}min';
 }
 
+/// Devolve um nome amigável para protocolos conhecidos (OMAD, dias
+/// alternados), ou a duração formatada genérica para os restantes.
+String protocolLabel(int minutes) {
+  if (minutes == 23 * 60) return 'OMAD · 23:1';
+  if (minutes == 36 * 60) return 'Dias alternados · 36h';
+  return formatDurationMinutes(minutes);
+}
+
 /// Representa uma sessão de jejum, ativa ou já terminada.
 class FastingSession {
   final DateTime startTime;
